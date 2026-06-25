@@ -1,43 +1,424 @@
-\documentclass[a4paper,singleside,12pt]{report} % Uncomment this for single side pdf.
-%\documentclass[a4paper,twoside,12pt]{report} % Uncomment this for printing.
+% Mayuresh Vrushabhanath Pachore Thesis 2025-2026
 
-\usepackage{ai_bo_thesis}
-\usepackage[english]{babel}
+% ===============================
+% Document Class
+% ===============================
+\documentclass[12pt,a4paper,twoside]{book}
+
+% ===============================
+% Encoding & Language
+% ===============================
 \usepackage[T1]{fontenc}
-\usepackage{lmodern}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+
+% ===============================
+% Page Layout
+% ===============================
+\usepackage{geometry}
+\geometry{
+    left=25mm,
+    right=25mm,
+    top=25mm,
+    bottom=25mm
+}
+
+\usepackage{setspace}
+\onehalfspacing % or \doublespacing if required
+
+\usepackage{indentfirst}
+\usepackage{pdflscape}
+
+% ===============================
+% Fonts
+% ===============================
+\usepackage{lmodern}        % Improved Computer Modern
+\usepackage{microtype}      % Better typography
+
+% ===============================
+% Mathematics
+% ===============================
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{amsthm}
+\usepackage{bm}             % Bold math symbols
+\usepackage{mathtools}
+
+% ===============================
+% Graphics & Figures
+% ===============================
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage{caption}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc}
+
+% ===============================
+% Tables
+% ===============================
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{tabularx}
+
+% ===============================
+% Algorithms & Code
+% ===============================
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny,
+    frame=single,
+    breaklines=true
+}
+
+% ===============================
+% Units & Symbols
+% ===============================
+\usepackage{siunitx}
+\sisetup{
+    per-mode=symbol,
+    detect-all
+}
+
+% ===============================
+% Hyperlinks
+% ===============================
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
 
 
-\usepackage[backend=biber,style=trad-plain, sorting=nty,firstinits=true]{biblatex}
-\addbibresource{biblio.bib}
+% ===============================
+% Chapter/Section appearance  (PUT THIS HERE)
+% ===============================
+\usepackage{titlesec}
 
-\setmainfont{Times New Roman}
+% Chapters: small "Chapter X", big title, better spacing
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries}
+  {\Large\chaptername\ \thechapter}
+  {5ex}
+  {\huge}
+
+
+
+% ===============================
+% Headings & TOC
+% ===============================
+\usepackage{chngcntr} % for \counterwithin
+\usepackage{tocloft}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+
+% -----------------------
+% Marks (chapter/section)
+% -----------------------
+\renewcommand{\chaptermark}[1]{\markboth{\thechapter.\ #1}{}}
+\renewcommand{\sectionmark}[1]{\markright{\thesection.\ #1}}
+
+% -----------------------
+% Header
+% -----------------------
+% Left: current chapter/section
+\fancyhead[L]{\small\nouppercase{\leftmark}}
+
+% Right: page number (2.1, 2.2 ...)
+\fancyhead[R]{\small\thepage}
+
+% -----------------------
+% Footer
+% -----------------------
+
+% Odd pages -> thesis title on left
+\fancyfoot[L]{%
+\ifodd\value{page}
+\footnotesize \textit{\ThesisTitle}
+\fi
+}
+
+% Even pages -> course/university on right
+\fancyfoot[R]{%
+\ifodd\value{page}
+\else
+\footnotesize \CourseUniversity
+\fi
+}
+
+% -----------------------
+% Lines
+% -----------------------
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% -----------------------
+% First page of chapters
+% -----------------------
+\fancypagestyle{plain}{
+\fancyhf{}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+}
+
+% -----------------------
+% Unnumbered chapters
+% -----------------------
+\fancypagestyle{chapterstar}{
+\fancyhf{}
+\fancyfoot[C]{\thepage}
+
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+}
+
+\fancypagestyle{chapterplain}{
+\fancyhf{}
+\fancyfoot[L]{\footnotesize \CourseUniversity}
+\fancyfoot[R]{\footnotesize \thepage}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0.4pt}
+}
+
+\fancypagestyle{chapternum}{
+  \fancyhf{}
+
+  % Header
+  \fancyhead[L]{\small\rightmark}
+  \fancyhead[R]{\small\thepage}
+
+  % Footer
+  \fancyfoot[R]{%
+    \ifodd\value{page}
+      \footnotesize \textit{\ThesisTitle}
+    \fi
+  }
+
+  \fancyfoot[L]{%
+    \ifodd\value{page}
+    \else
+      \footnotesize \CourseUniversity
+    \fi
+  }
+
+  \renewcommand{\headrulewidth}{0.4pt}
+  \renewcommand{\footrulewidth}{0.4pt}
+}
+
+
+% ===============================
+% Appendices
+% ===============================
+\usepackage{appendix}
+
+% ===============================
+% Nomenclature / Acronyms
+% ===============================
+\usepackage{nomencl}
+\makenomenclature
+
+% \usepackage[acronym]{glossaries}
+% \makeglossaries
+
+% ===============================
+% PDF Inclusion
+% ===============================
+\usepackage{pdfpages}
+
+% ===============================
+% Line Breaking & Widow Control
+% ===============================
+\usepackage[all]{nowidow}
+
+% ===============================
+% Custom Commands (optional)
+% ===============================
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\vect}[1]{\boldsymbol{#1}}
+
+\newcommand{\AuthorName}{\textit{X.Y.Surname}}
+\newcommand{\ThesisTitle}{Title of Thesis}
+\newcommand{\CourseUniversity}{BSc/MSc, Course, Department, University of Bologna}
+
+\setlength{\headheight}{14pt}
+
+% ===============================
+% End of Preamble
+% ===============================
+
+
 \begin{document}
-	
-	\title{Tensor-prolog: a logic programming framework for training neural networks}
-	\topic{Applied Logic Programming}
-	\candidate{John Smith}
-	\supervisor{Prof.~Mario Rossi}
-%	\cosupervisor{& John Doe, PhD.} % One co-supervisor.
-%	\cosupervisors{& Dott.~Ing.~Luigi Bianchi\\& Dott~Avv.~Lucia Rossi} % More than one co-supervisor.
-	\academicyear{2020-2021}
-	\session{1st}
-	
-	\frontispiece 
-	\dedication{dedicated(X) :- friend(X).}
-	\toc
-	\figstoc
-	\tablestoc
-	\begintext
-	
-	\chapter{Introduction}
-	YOUR THESIS HERE~\cite{wielemaker2012swi,swi}
-	
-	\appendix
-	
-	\printbibliography[heading=bibintoc] % biblatex
 
+    %Only for title page 
+    \setlength{\parindent}{15pt}
+    \setlength{\parskip}{15mm}
+    
+    \begin{titlepage}
+        \begin{center}
+            \includegraphics[width=6.5cm,height=4.7cm]{figs/Unibo_Logo.png}
+        
+            {\large{\bf{Department of Electrical, Electronic, and Information Engineering "Guglielmo Marconi" - DEI }}}
+        
+            {\Large{\bf{Second Cycle Degree/Two Year Master in Automation Engineering}}}
+        
+            {\bfseries\fontsize{26pt}{20pt}\selectfont
+                \setlength{\lineskip}{2pt}%
+                \setlength{\lineskiplimit}{0pt}%
+                Title of Thesis\par}
+            
+        \end{center}
+        
+        \begin{minipage}[t]{0.5\textwidth}
+            {\Large{\bf Supervisor: \\ Prof. Name Surname }}
+            \vspace{6mm}
+
+            {\Large{\bf International Supervisor: \\ Name Surname }}
+            
+        \end{minipage}
+        \hfill
+        \begin{minipage}[t]{0.40\textwidth}\raggedleft
+            {\Large{\bf Defended By: \\ Name Surname}}
+        \end{minipage}
+
+        \rule[0.5mm]{15.3845cm}{0.4mm}
+        \vspace{-\baselineskip}
+        \begin{center}
+            {\large\bfseries Graduation Session Month 20XX\\}
+            {\large\bfseries Academic Year 20XX/20XX}
+        \end{center}
+
+    \end{titlepage}
+    \clearpage{\pagestyle{empty}\cleardoublepage}
+
+    \pagenumbering{roman} %page numbering is roman letters for this section
+    \setlength{\parindent}{15pt}
+    \setlength{\parskip}{0pt}
+    
+	\chapter*{Abstract}
+    \addcontentsline{toc}{chapter}{Abstract}
+    \thispagestyle{chapterstar}
+	\label{abstract_Eng}
+	\input{Abstract_Eng.tex}
+	\clearpage{\pagestyle{empty}\cleardoublepage}
+
+        
+	\chapter*{Riassunto}
+    \addcontentsline{toc}{chapter}{Riassunto}
+    \thispagestyle{chapterstar}
+	\label{abstract_It}
+	\input{Abstract_It.tex}
+	\clearpage{\pagestyle{empty}\cleardoublepage}
 	
-	\acknowledgements
-		I'm very grateful to the inventor of the Prolog language, without whom this thesis couldn't exist. I'd also like to acknowledge my advisor Prof. Mario Rossi by tail-recursively acknowledging my advisor.
+	
+
+    \pagestyle{chapterstar}
+    \chapter*{Acknowledgment}
+    \addcontentsline{toc}{chapter}{Acknowledgment}
+    \thispagestyle{chapterstar}
+	\label{acknow}
+	\input{Acknowledgment}
+	\clearpage{\pagestyle{empty}\cleardoublepage}
+	
 		
+	
+	%table of contents
+    \tableofcontents
+    \thispagestyle{chapterstar}
+    \clearpage
+    \pagestyle{fancy}
+    \cleardoublepage
+
+    \addcontentsline{toc}{chapter}{List of Figures}
+	\listoffigures
+    \thispagestyle{chapterstar}
+	\clearpage{\pagestyle{empty}\cleardoublepage}
+
+    \listoftables
+    \thispagestyle{chapterstar}
+    \addcontentsline{toc}{chapter}{List of Tables}
+    \clearpage{\pagestyle{empty}\cleardoublepage}
+
+    \chapter*{Nomenclature}
+    \addcontentsline{toc}{chapter}{Nomenclature}
+    \thispagestyle{chapterstar}
+	\label{Nomencla}
+	\input{Nomenclature}
+    \clearpage{\pagestyle{empty}\cleardoublepage}
+
+    \mainmatter 
+    \pagestyle{chapternum}
+    
+    \pagenumbering{arabic}
+    \counterwithin{page}{chapter}
+    \renewcommand{\thepage}{\thechapter.\arabic{page}}
+    
+	\chapter{Introduction}
+    \thispagestyle{chapterplain}
+	\label{chap:introduction}
+	\input{Chapter1.tex}
+	\clearpage{\pagestyle{empty}\cleardoublepage}
+		
+			
+    \chapter{Related Work}
+    \thispagestyle{chapterplain}
+    \label{chap:relatedwork}
+	\input{Chapter2}
+	\clearpage{\pagestyle{empty}\cleardoublepage}
+	
+
+    \chapter{Methodology}
+    \thispagestyle{chapterplain}
+    \label{chap:methodology}
+	\input{Chapter3}
+	\clearpage{\pagestyle{empty}\cleardoublepage}
+	
+		
+    \chapter{Experimental Setup}
+    \thispagestyle{chapterplain}
+    \label{chap:experimental-setup}
+	\input{Chapter4}
+	\clearpage{\pagestyle{empty}\cleardoublepage}
+	
+	
+    \chapter{Results and Discussion}
+    \thispagestyle{chapterplain}
+    \label{chap:results}
+	\input{Chapter5}
+	\clearpage{\pagestyle{empty}\cleardoublepage}
+	
+	
+
+	\chapter{Conclusions}
+    \thispagestyle{chapterplain}
+	\label{chap:conclusion}
+	\input{Conclusion}
+	\clearpage{\pagestyle{empty}\cleardoublepage}
+
+    	
+    \pagestyle{plain}
+    \cleardoublepage
+    \setcounter{page}{1}
+    \renewcommand{\thepage}{B\arabic{page}}
+    \bibliographystyle{ieeetr}
+    \addcontentsline{toc}{chapter}{Bibliography}
+    \bibliography{references}
+
 \end{document}
+
