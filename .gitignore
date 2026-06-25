@@ -1,0 +1,52 @@
+# LaTeX intermediate and auxiliary files
+*.aux
+*.bbl
+*.blg
+*.brf
+*.idx
+*.ilg
+*.ind
+*.lof
+*.log
+*.lot
+*.out
+*.toc
+*.fmt
+*.fot
+*.cb
+
+# SyncTeX and latexmk files
+*.synctex.gz
+*.synctex
+*.fdb_latexmk
+*.fls
+
+# Presentation/navigation files
+*.nav
+*.snm
+*.vrb
+
+# Build directories and minted output
+build/
+_build/
+_minted-*/
+
+# Generated device files
+*.dvi
+*.ps
+
+# Generated PDF (uncomment if you want to track final PDFs)
+# *.pdf
+
+# Editor / OS files
+.DS_Store
+*~
+*.swp
+.vscode/
+.idea/
+
+# latexmk/other auxiliary config
+latexmkrc
+
+# Keep README, source files and bibliography tracked
+# (adjust above rules if you want to keep e.g. final PDFs or build folders)
