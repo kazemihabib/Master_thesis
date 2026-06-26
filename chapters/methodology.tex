@@ -1,0 +1,64 @@
+% =============================================================
+% CHAPTER 4 — METHODOLOGY / PROPOSED APPROACH
+% Purpose: describe WHAT YOU DID and WHY, at the level of design and reasoning --
+% not raw configuration values (those go in Chapter 5). This is the core
+% intellectual contribution chapter. A reader should understand your approach
+% well enough to judge whether it is sound; a different reader should be able to
+% reimplement it from this + Chapter 5.
+% Tip: justify every design choice. "I did X" is weak; "I did X because Y, as
+% opposed to Z which would have..." is a thesis.
+% =============================================================
+\chapter{Methodology}
+\label{chap:methodology}
+
+\guide{Open with a high-level overview of your approach in a paragraph, ideally
+with a system diagram (see the figure stub below). The reader should grasp the
+whole pipeline before you dive into parts.}
+
+\begin{figure}[t]
+	\centering
+	% \includegraphics[width=0.9\textwidth]{figs/pipeline.png}
+	\guide{Place a system/pipeline diagram here: image(s) + prompt -> MLLM ->
+	parsed verdict -> metrics. A good overview figure is worth a page of prose.}
+	\caption{Overview of the proposed detection pipeline.}
+	\label{fig:pipeline}
+\end{figure}
+
+\section{Problem Formulation}
+\guide{Formalise the task. Define inputs and outputs precisely, e.g. given an
+image $x$, the model produces a label $\hat{y}\in\{\text{real},\text{fake}\}$
+(and optionally a rationale). Introduce notation you will reuse. Keep it rigorous
+but readable.}
+
+\section{Overall Pipeline Design}
+\guide{Describe the architecture of your evaluation pipeline and the reasoning
+behind it: the Task $\times$ Models $\times$ Datasets $\times$ Prompts matrix,
+why you isolate one model per process (VRAM management), how results are made
+resumable, and how the design supports adding new models/datasets/prompts.
+Explain design principles (extensibility, reproducibility) rather than code.}
+
+\section{Prompting Strategies}
+\guide{This is central to RQ2. Describe the prompt variants you designed and the
+hypothesis behind each (e.g. direct verdict vs chain-of-thought; neutral vs
+persona; with/without a definition of ``face swap''; structured JSON output).
+Show a representative prompt -- a listing is ideal:}
+\begin{lstlisting}[basicstyle=\ttfamily\small, breaklines=true, frame=single]
+You are an expert image forensics analyst. Look at the image and decide
+whether the face has been digitally swapped or manipulated.
+Answer with exactly one word: "real" or "fake".
+\end{lstlisting}
+\guide{Explain how prompts map to expected outputs and how you keep them
+comparable across models.}
+
+\section{Response Parsing and Verdict Extraction}
+\guide{MLLMs return free text, so explain how you turn that into a clean label:
+the parser(s), how you handle malformed/ambiguous outputs, and what counts as a
+parse failure vs a wrong answer. This matters because it directly affects the
+metrics in \Cref{chap:results}.}
+
+\section{Evaluation Protocol}
+\guide{Describe -- at the conceptual level -- how you measure success: which
+metrics (defined in \Cref{chap:background}), how you aggregate across datasets and
+generators, how you treat errors and parse failures, and any statistical care
+(e.g. fixed seeds, deterministic decoding with temperature 0). State what would
+count as a positive answer to each research question.}

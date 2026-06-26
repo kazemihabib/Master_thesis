@@ -1,0 +1,73 @@
+% =============================================================
+% CHAPTER 5 — EXPERIMENTAL SETUP
+% Purpose: every concrete detail needed to REPRODUCE your experiments. If
+% Chapter 4 is "what and why", this is "exactly how, with which numbers". A
+% careful reader should be able to rerun your study from this chapter.
+% Tip: prefer tables for models, datasets, and hyperparameters. State versions.
+% =============================================================
+\chapter{Experimental Setup}
+\label{chap:setup}
+
+\guide{One-paragraph overview of the experimental campaign: how many models,
+datasets, prompts, and the total number of (model, prompt, dataset) runs.}
+
+\section{Datasets}
+\guide{For EACH dataset (e.g. FOWS, GOTCHA): describe its source, size, the
+real/fake balance, the manipulation generators it contains, how you sampled it
+(e.g. random 1000), and any preprocessing (frame selection, cropping). A summary
+table is expected -- see below. Note licensing/ethical aspects if relevant.}
+
+\begin{table}[t]
+	\centering
+	\caption{Datasets used in the evaluation.}
+	\label{tab:datasets}
+	\begin{tabular}{lrrl}
+		\toprule
+		Dataset & \#Real & \#Fake & Generators \\
+		\midrule
+		FOWS    & --     & --     & \dots \\
+		GOTCHA  & --     & --     & \dots \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{Models}
+\guide{List the MLLMs you evaluated with enough detail to identify them exactly:
+name, size/parameters, the exact checkpoint/revision, and the backend used to run
+them. Put this in a table. Mention any model-specific settings (chat template,
+LoRA, quantisation) and why.}
+
+\begin{table}[t]
+	\centering
+	\caption{Multimodal LLMs evaluated.}
+	\label{tab:models}
+	\begin{tabular}{llr}
+		\toprule
+		Model & Backend & Params \\
+		\midrule
+		\dots & vLLM & \dots \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{Prompts}
+\guide{Enumerate the prompt variants actually used in experiments (they were
+designed in \Cref{chap:methodology}). Give each a short name you will reuse in
+results tables. Consider putting the full prompt texts in \Cref{app:prompts}
+and referencing them here.}
+
+\section{Decoding and Hyperparameters}
+\guide{State sampling settings (temperature, max tokens, etc.), batch sizes, and
+anything that affects determinism. If you used temperature 0 for reproducibility,
+say so and say why.}
+
+\section{Hardware and Software Environment}
+\guide{Report the compute: GPU type and count, CUDA version, key library
+versions (e.g. vLLM, PyTorch, transformers), and Python version. This is what
+makes the work reproducible and is expected in a CS thesis.}
+
+\section{Evaluation Metrics and Reproducibility}
+\guide{Restate, concisely, the metrics you will report (defined in
+\Cref{chap:background}) and how results are computed from the raw outputs. Point to
+where the code/configs live if the work is open. State how randomness is
+controlled.}

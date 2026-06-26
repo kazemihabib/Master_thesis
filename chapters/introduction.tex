@@ -1,0 +1,54 @@
+% =============================================================
+% CHAPTER 1 — INTRODUCTION
+% Purpose: convince the reader the problem matters, state exactly what you did,
+% and give them a map of the document. Write a first draft early, then rewrite
+% it last so it matches what the thesis actually ends up containing.
+% Length: typically 4-8 pages.
+% =============================================================
+\chapter{Introduction}
+\label{chap:introduction}
+
+\section{Context and Motivation}
+\guide{Open wide, then narrow. Start from the general phenomenon (deepfakes /
+face-swapping, their growth and real-world harms: misinformation, fraud,
+non-consensual imagery), supported by a few citations. Explain why detection is
+important and why it is hard. Then narrow to your specific angle: using
+multimodal LLMs as general-purpose detectors. End the section with the single
+sentence that the reader should remember about why this work exists.}
+
+\section{Problem Statement}
+\guide{State precisely the problem you tackle, in plain terms. E.g. ``Given a
+single face image, decide whether the face has been swapped/manipulated.''
+Make the scope explicit: images (not video), specific manipulation families,
+zero-shot use of pretrained MLLMs (no fine-tuning), etc. Defining what is OUT of
+scope is as valuable as defining what is in.}
+
+\section{Research Questions and Objectives}
+\guide{List 2-4 concrete, answerable research questions. These become the
+backbone the whole thesis answers. For example:
+RQ1: Can off-the-shelf MLLMs detect face swaps above chance in zero-shot mode?
+RQ2: How much does prompt design change detection performance?
+RQ3: How do results vary across datasets, manipulation generators, and model
+families? Then translate each RQ into an objective (what you will build/measure
+to answer it).}
+
+\section{Contributions}
+\guide{A short bulleted list of what is genuinely new or useful in your work.
+Be honest and specific -- a contribution is something a reader could cite. For
+this thesis they might be: (i) an extensible, reproducible evaluation pipeline
+for MLLM-based manipulation detection; (ii) a systematic comparison of N models
+$\times$ M prompts across two datasets; (iii) an analysis of which prompting
+strategies and manipulation types help or hurt detection.}
+\begin{itemize}
+	\item \guide{Contribution 1 -- one sentence.}
+	\item \guide{Contribution 2 -- one sentence.}
+	\item \guide{Contribution 3 -- one sentence.}
+\end{itemize}
+
+\section{Thesis Outline}
+\guide{One short paragraph mapping the rest of the document: ``\Cref{chap:background}
+introduces the necessary background; \Cref{chap:relatedwork} reviews prior work;
+\Cref{chap:methodology} describes the proposed approach; \Cref{chap:setup} details
+the experimental setup; \Cref{chap:results} presents and discusses results; and
+\Cref{chap:conclusion} concludes and outlines future work.'' Update the
+cross-references once your chapters are stable.}

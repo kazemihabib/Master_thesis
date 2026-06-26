@@ -1,0 +1,60 @@
+% =============================================================
+% CHAPTER 6 — RESULTS AND DISCUSSION
+% Purpose: present your findings (results) and interpret them (discussion). This
+% is where you actually ANSWER the research questions. Keep "what the numbers
+% are" and "what the numbers mean" clearly distinguishable -- either as separate
+% sections or clearly separated paragraphs.
+% Tip: lead with the headline result. Every table/figure must be referred to in
+% the text and interpreted -- never drop a table without saying what to see in it.
+% =============================================================
+\chapter{Results and Discussion}
+\label{chap:results}
+
+\guide{Open with a short paragraph stating the headline finding before any
+tables, so a hurried reader gets the message immediately.}
+
+\section{Overall Detection Performance}
+\guide{Present the main results table: models (rows) vs metrics (columns),
+aggregated over datasets/prompts as appropriate. Then INTERPRET it: which models
+do best, are any above/below chance, how big are the gaps. Refer to the table by
+\Cref{tab:main-results}.}
+
+\begin{table}[t]
+	\centering
+	\caption{Detection performance (\%) across models.}
+	\label{tab:main-results}
+	\begin{tabular}{lcccc}
+		\toprule
+		Model & Accuracy & Precision & Recall & F1 \\
+		\midrule
+		\dots & -- & -- & -- & -- \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{Effect of Prompting Strategy (RQ2)}
+\guide{Show how performance changes across your prompt variants. A grouped table
+or bar chart works well. Discuss which strategies helped, which hurt, and why you
+think so. Tie the discussion explicitly back to RQ2.}
+
+\section{Results by Dataset and Manipulation Type (RQ3)}
+\guide{Break results down by dataset (FOWS vs GOTCHA) and by generator/manipulation
+family. This reveals generalisation behaviour -- the core motivation. Highlight
+where models systematically fail.}
+
+\section{Error Analysis}
+\guide{Go beyond aggregate numbers. Show representative failure cases (with
+images if licensing allows), categorise common error types, and quantify
+parse-failure vs genuine misclassification. This qualitative analysis is often
+what distinguishes a good thesis from a results dump.}
+
+\section{Discussion}
+\guide{Step back and answer each research question in plain language, supported by
+the evidence above. What do the results imply about using MLLMs as face-swap
+detectors? Compare against the related work from \Cref{chap:relatedwork}. Be
+balanced -- discuss both what works and what does not.}
+
+\section{Limitations and Threats to Validity}
+\guide{State honestly what limits the conclusions: dataset coverage, model
+selection, prompt sensitivity, single-image (not video) scope, evaluation
+choices. Acknowledging limitations strengthens, not weakens, a thesis.}

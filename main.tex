@@ -6,36 +6,80 @@
 \usepackage[english]{babel}
 \usepackage{ai_bo_thesis} % loads Times-like fonts (newtx) for pdfLaTeX
 
-\usepackage{csquotes} % language-aware quotes; recommended with babel + biblatex
+% --- Common, useful packages for a CS/AI thesis ---
+\usepackage{graphicx}     % \includegraphics
+\usepackage{booktabs}     % nice tables (\toprule, \midrule, \bottomrule)
+\usepackage{amsmath}      % math environments (also pulled in by newtxmath)
+\usepackage{siunitx}      % \num, \SI, aligned numbers in tables
+\usepackage{subcaption}   % side-by-side figures (subfigure)
+\usepackage{listings}     % code listings (prompts, snippets)
+
+\usepackage{csquotes}     % language-aware quotes; recommended with babel + biblatex
+\usepackage{hyperref}     % clickable cross-references and citations
+\hypersetup{hidelinks}    % clean look; switch to colorlinks=true if you prefer colored links
+
 \usepackage[backend=biber,style=trad-plain, sorting=nty,giveninits=true]{biblatex}
 \addbibresource{biblio.bib}
+
+\usepackage[capitalise,noabbrev]{cleveref} % \cref{...} -> "Chapter 3", "Figure 2.1"
+
+% -----------------------------------------------------------------------------
+% Writing-guidance helper.
+% Wherever you see \guide{...} in the chapter files, that is advice ABOUT what
+% to write there -- replace it with your own text and delete the \guide call.
+% To hide ALL guidance at once (e.g. for a near-final draft) redefine it to do
+% nothing: \renewcommand{\guide}[1]{}
+% -----------------------------------------------------------------------------
+\newcommand{\guide}[1]{\par\smallskip\noindent\textit{\small[\,#1\,]}\par\smallskip}
+
+\setlength{\headheight}{15pt} % avoid fancyhdr "headheight too small" warning
+
 \begin{document}
-	
-	\title{Tensor-prolog: a logic programming framework for training neural networks}
-	\topic{Applied Logic Programming}
-	\candidate{John Smith}
-	\supervisor{Prof.~Mario Rossi}
-%	\cosupervisor{& John Doe, PhD.} % One co-supervisor.
-%	\cosupervisors{& Dott.~Ing.~Luigi Bianchi\\& Dott~Avv.~Lucia Rossi} % More than one co-supervisor.
-	\academicyear{2020-2021}
+
+	% --- Frontispiece (title page) metadata ---
+	\title{Detecting Face-Swapped Images with Multimodal Large Language Models}
+	\topic{Artificial Intelligence} % the "in <subject>" line on the title page
+	\candidate{Habib Kazemi}
+	\supervisor{Prof.~Name Surname}
+%	\cosupervisor{& Name Surname} % One co-supervisor.
+%	\cosupervisors{& Dr.~Name Surname\\& Dr.~Name Surname} % More than one co-supervisor.
+	\academicyear{2025-2026}
 	\session{1st}
-	
-	\frontispiece 
-	\dedication{dedicated(X) :- friend(X).}
+
+	\frontispiece
+	\dedication{To \dots} % optional; keep short, or comment out
+
+	% --- Abstract (English) ---
+	\cleardoublepage
+	\chapter*{Abstract}
+	\addcontentsline{toc}{chapter}{Abstract}
+	\input{chapters/abstract}
+
+	% --- Italian abstract (optional; UNIBO often appreciates one) ---
+	%\cleardoublepage
+	%\chapter*{Sommario}
+	%\addcontentsline{toc}{chapter}{Sommario}
+	%\input{chapters/sommario}
+
 	\toc
-	\figstoc
-	\tablestoc
+	\figstoc   % comment out until you have figures
+	\tablestoc % comment out until you have tables
 	\begintext
-	
-	\chapter{Introduction}
-	YOUR THESIS HERE~\cite{wielemaker2012swi,swi}
-	
+
+	\input{chapters/introduction}
+	\input{chapters/background}
+	\input{chapters/related_work}
+	\input{chapters/methodology}
+	\input{chapters/experimental_setup}
+	\input{chapters/results}
+	\input{chapters/conclusion}
+
 	\appendix
-	
+	\input{chapters/appendix}
+
 	\printbibliography[heading=bibintoc] % biblatex
 
-	
 	\acknowledgements
-		I'm very grateful to the inventor of the Prolog language, without whom this thesis couldn't exist. I'd also like to acknowledge my advisor Prof. Mario Rossi by tail-recursively acknowledging my advisor.
-		
+	\input{chapters/acknowledgements}
+
 \end{document}
