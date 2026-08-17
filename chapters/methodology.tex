@@ -33,19 +33,20 @@ Let $m$ denote an off-the-shelf instruction-tuned MLLM. Given an input facial qu
 
 \subsection{Prompt Parameterization}
 
-To study the influence of prompt design without confounding effects, a prompt $p$ is treated as a structured composition of modular dimensions rather than an arbitrary text string:
+In typical applications, prompts are formulated as monolithic text strings. However, modifying multiple prompt aspects simultaneously makes it impossible to isolate which specific factor drives changes in model performance. To enable controlled and systematic evaluation, we formulate a prompt $p$ as a modular tuple of five distinct components:
 \begin{equation}
     p = \langle \mathcal{V}, \mathcal{S}, \mathcal{R}, \mathcal{C}, \mathcal{D} \rangle
 \end{equation}
 where:
 \begin{itemize}
-    \item $\mathcal{V} = (w_{\text{real}}, w_{\text{fake}})$ represents the \emph{lexical pair} of candidate words specifying the target classes;
-    \item $\mathcal{S}$ represents the \emph{structural formatting and contextual explanation} (e.g., instructions and background definitions, placed across conversational turns);
-    \item $\mathcal{R}$ specifies an optional \emph{role or persona framing} assigned to the model;
-    \item $\mathcal{C}$ governs the \emph{reasoning strategy} (e.g., direct classification versus eliciting visual rationale steps);
-    \item $\mathcal{D} = \{(x_1^{(d)}, y_1^{(d)}), \dots, (x_n^{(d)}, y_n^{(d)})\}$ denotes an optional ordered sequence of $n$ labelled demonstration examples for in-context learning ($n=0$ in zero-shot configurations).
+    \item $\mathcal{V} = (w_{\text{real}}, w_{\text{fake}})$ specifies the \textbf{target class vocabulary} words the model is instructed to output for real and fake faces (e.g., \texttt{("authentic", "faceswapped")});
+    \item $\mathcal{S}$ defines the \textbf{extra context} provided in the system or user prompt;
+    \item $\mathcal{R}$ specifies the \textbf{persona} in the systemp prompt (e.g., \emph{Forensic Video Analyst} );
+    \item $\mathcal{C}$ governs the \textbf{reasoning mode} determining whether and how the model should produce a reasoning for it's choice (e.g. Chain-of-Thought);
+    \item $\mathcal{D} = \{(x_1^{(d)}, y_1^{(d)}), \dots, (x_n^{(d)}, y_n^{(d)})\}$ denotes the \textbf{in-context demonstration set} of $n$ labelled visual exemplars ($n = 0$ in zero-shot configurations).
 \end{itemize}
-The concrete parameter spaces and systematic exploration protocols for each of these dimensions are detailed in \Cref{sec:staged_prompting} (for zero-shot prompting stages) and \Cref{sec:few_shot_method} (for few-shot in-context learning).
+
+This decomposition directly enables the staged experimental funnel described in \Cref{sec:staged_prompting} and the few-shot protocol in \Cref{sec:few_shot_method}.
 
 \subsection{Deterministic Parsing and Failure Semantics}
 
