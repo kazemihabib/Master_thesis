@@ -1,0 +1,398 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.3 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{nty/global//global/global/global}
+    \entry{simswap}{inproceedings}{}{}
+      \name{author}{4}{}{%
+        {{hash=da4a117e1f984b76cf357bbb4241edd8}{%
+           family={Chen},
+           familyi={C\bibinitperiod},
+           given={Renwang},
+           giveni={R\bibinitperiod}}}%
+        {{hash=c855e21a2eadee0cd3937e638dbf1424}{%
+           family={Chen},
+           familyi={C\bibinitperiod},
+           given={Xuanhong},
+           giveni={X\bibinitperiod}}}%
+        {{hash=dbea8b402c0eef4fbf620f5d77a680c4}{%
+           family={Ni},
+           familyi={N\bibinitperiod},
+           given={Bingbing},
+           giveni={B\bibinitperiod}}}%
+        {{hash=4aa91331fa6e6d28ef308c13cda26648}{%
+           family={Ge},
+           familyi={G\bibinitperiod},
+           given={Yanhao},
+           giveni={Y\bibinitperiod}}}%
+      }
+      \strng{namehash}{1c466b76707b8b1501606c8ff1a129e3}
+      \strng{fullhash}{1c466b76707b8b1501606c8ff1a129e3}
+      \strng{fullhashraw}{1c466b76707b8b1501606c8ff1a129e3}
+      \strng{bibnamehash}{1c466b76707b8b1501606c8ff1a129e3}
+      \strng{authorbibnamehash}{1c466b76707b8b1501606c8ff1a129e3}
+      \strng{authornamehash}{1c466b76707b8b1501606c8ff1a129e3}
+      \strng{authorfullhash}{1c466b76707b8b1501606c8ff1a129e3}
+      \strng{authorfullhashraw}{1c466b76707b8b1501606c8ff1a129e3}
+      \field{sortinit}{C}
+      \field{sortinithash}{4d103a86280481745c9c897c925753c0}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Proceedings of the 28th ACM International Conference on Multimedia}
+      \field{title}{{SimSwap}: An Efficient Framework for High Fidelity Face Swapping}
+      \field{year}{2020}
+      \field{pages}{2003\bibrangedash 2011}
+      \range{pages}{9}
+    \endentry
+    \entry{ghost}{inproceedings}{}{}
+      \name{author}{5}{}{%
+        {{hash=b0c823db8f9636a7a166cf7b1fafc033}{%
+           family={Groshev},
+           familyi={G\bibinitperiod},
+           given={Alexander},
+           giveni={A\bibinitperiod}}}%
+        {{hash=5ca55fef2f26a3de979b5417479b25d3}{%
+           family={Anastasia},
+           familyi={A\bibinitperiod},
+           given={Maltseva},
+           giveni={M\bibinitperiod}}}%
+        {{hash=e66533615382df717fcb480f8c837db2}{%
+           family={Daniil},
+           familyi={D\bibinitperiod},
+           given={Chesakov},
+           giveni={C\bibinitperiod}}}%
+        {{hash=b7fbfd53dc8703423972c344b465362a}{%
+           family={Andrey},
+           familyi={A\bibinitperiod},
+           given={Kuznetsov},
+           giveni={K\bibinitperiod}}}%
+        {{hash=452eb319bc78290bd2d35d49ae3ceb1c}{%
+           family={Denis},
+           familyi={D\bibinitperiod},
+           given={Dimitrov},
+           giveni={D\bibinitperiod}}}%
+      }
+      \strng{namehash}{5dedda841fb8455fe2233e58bfd807ae}
+      \strng{fullhash}{5dedda841fb8455fe2233e58bfd807ae}
+      \strng{fullhashraw}{5dedda841fb8455fe2233e58bfd807ae}
+      \strng{bibnamehash}{5dedda841fb8455fe2233e58bfd807ae}
+      \strng{authorbibnamehash}{5dedda841fb8455fe2233e58bfd807ae}
+      \strng{authornamehash}{5dedda841fb8455fe2233e58bfd807ae}
+      \strng{authorfullhash}{5dedda841fb8455fe2233e58bfd807ae}
+      \strng{authorfullhashraw}{5dedda841fb8455fe2233e58bfd807ae}
+      \field{sortinit}{G}
+      \field{sortinithash}{32d67eca0634bf53703493fb1090a2e8}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{IEEE International Conference on Image Processing (ICIP)}
+      \field{title}{{GHOST}---{G}enerative {H}igh-fidelity {O}ne-shot {S}wapping {T}echnology}
+      \field{year}{2022}
+      \field{pages}{3738\bibrangedash 3742}
+      \range{pages}{5}
+    \endentry
+    \entry{vllm}{inproceedings}{}{}
+      \name{author}{9}{}{%
+        {{hash=3127ee56e9c5b4624fe744d4cbb4cfae}{%
+           family={Kwon},
+           familyi={K\bibinitperiod},
+           given={Woosuk},
+           giveni={W\bibinitperiod}}}%
+        {{hash=a57e6ad48b4f46462aa4a0aa5a0f704e}{%
+           family={Li},
+           familyi={L\bibinitperiod},
+           given={Zhuohan},
+           giveni={Z\bibinitperiod}}}%
+        {{hash=d922f0e30f0817f9514b3360b791d760}{%
+           family={Zhuang},
+           familyi={Z\bibinitperiod},
+           given={Siyuan},
+           giveni={S\bibinitperiod}}}%
+        {{hash=b99fbe22103d2d6f803495267ee1cac9}{%
+           family={Sheng},
+           familyi={S\bibinitperiod},
+           given={Ying},
+           giveni={Y\bibinitperiod}}}%
+        {{hash=0beb8f75088bfac1e81ca3840d0e89f0}{%
+           family={Zheng},
+           familyi={Z\bibinitperiod},
+           given={Lianmin},
+           giveni={L\bibinitperiod}}}%
+        {{hash=3df15176890cbcdefb1d2037c89ea628}{%
+           family={Yu},
+           familyi={Y\bibinitperiod},
+           given={Cody\bibnamedelima Hao},
+           giveni={C\bibinitperiod\bibinitdelim H\bibinitperiod}}}%
+        {{hash=80175f489665023b28dbb4cf1775c0ef}{%
+           family={Gonzalez},
+           familyi={G\bibinitperiod},
+           given={Joseph\bibnamedelima E.},
+           giveni={J\bibinitperiod\bibinitdelim E\bibinitperiod}}}%
+        {{hash=8c6d18e2d167e1a3dc88c0166bbc3471}{%
+           family={Zhang},
+           familyi={Z\bibinitperiod},
+           given={Hao},
+           giveni={H\bibinitperiod}}}%
+        {{hash=51d9ef26181e2e8a9dc546b401e0bb26}{%
+           family={Stoica},
+           familyi={S\bibinitperiod},
+           given={Ion},
+           giveni={I\bibinitperiod}}}%
+      }
+      \strng{namehash}{2c27acbcd2852c70e7247e70cc009b6d}
+      \strng{fullhash}{2c27acbcd2852c70e7247e70cc009b6d}
+      \strng{fullhashraw}{2c27acbcd2852c70e7247e70cc009b6d}
+      \strng{bibnamehash}{2c27acbcd2852c70e7247e70cc009b6d}
+      \strng{authorbibnamehash}{2c27acbcd2852c70e7247e70cc009b6d}
+      \strng{authornamehash}{2c27acbcd2852c70e7247e70cc009b6d}
+      \strng{authorfullhash}{2c27acbcd2852c70e7247e70cc009b6d}
+      \strng{authorfullhashraw}{2c27acbcd2852c70e7247e70cc009b6d}
+      \field{sortinit}{K}
+      \field{sortinithash}{c02bf6bff1c488450c352b40f5d853ab}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Proceedings of the 29th Symposium on Operating Systems Principles (SOSP)}
+      \field{title}{Efficient Memory Management for Large Language Model Serving with {PagedAttention}}
+      \field{year}{2023}
+    \endentry
+    \entry{gotcha}{article}{}{}
+      \name{author}{3}{}{%
+        {{hash=2ff3a4de7ee3c9a0e836572900594618}{%
+           family={Mittal},
+           familyi={M\bibinitperiod},
+           given={Govind},
+           giveni={G\bibinitperiod}}}%
+        {{hash=2edc4108b4aef67fe73f9c0369572451}{%
+           family={Hegde},
+           familyi={H\bibinitperiod},
+           given={Chinmay},
+           giveni={C\bibinitperiod}}}%
+        {{hash=09c1479ba74e772074143ca4223000b8}{%
+           family={Memon},
+           familyi={M\bibinitperiod},
+           given={Nasir},
+           giveni={N\bibinitperiod}}}%
+      }
+      \strng{namehash}{328b8201b5c1b93a8d9dc971dca2be6f}
+      \strng{fullhash}{328b8201b5c1b93a8d9dc971dca2be6f}
+      \strng{fullhashraw}{328b8201b5c1b93a8d9dc971dca2be6f}
+      \strng{bibnamehash}{328b8201b5c1b93a8d9dc971dca2be6f}
+      \strng{authorbibnamehash}{328b8201b5c1b93a8d9dc971dca2be6f}
+      \strng{authornamehash}{328b8201b5c1b93a8d9dc971dca2be6f}
+      \strng{authorfullhash}{328b8201b5c1b93a8d9dc971dca2be6f}
+      \strng{authorfullhashraw}{328b8201b5c1b93a8d9dc971dca2be6f}
+      \field{sortinit}{M}
+      \field{sortinithash}{4625c616857f13d17ce56f7d4f97d451}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{arXiv preprint arXiv:2210.06186}
+      \field{title}{{GOTCHA}: Real-Time Video Deepfake Detection via Challenge-Response}
+      \field{year}{2024}
+    \endentry
+    \entry{fsgan}{inproceedings}{}{}
+      \name{author}{3}{}{%
+        {{hash=43689822a0a6900c83f77156c32b2039}{%
+           family={Nirkin},
+           familyi={N\bibinitperiod},
+           given={Yuval},
+           giveni={Y\bibinitperiod}}}%
+        {{hash=ee3298c594e2629c312149d58b18756d}{%
+           family={Keller},
+           familyi={K\bibinitperiod},
+           given={Yosi},
+           giveni={Y\bibinitperiod}}}%
+        {{hash=46a03ab511e1b24870696b8a70022509}{%
+           family={Hassner},
+           familyi={H\bibinitperiod},
+           given={Tal},
+           giveni={T\bibinitperiod}}}%
+      }
+      \strng{namehash}{0f52a11acf86e8c9ccdcfe72c4bbbf7e}
+      \strng{fullhash}{0f52a11acf86e8c9ccdcfe72c4bbbf7e}
+      \strng{fullhashraw}{0f52a11acf86e8c9ccdcfe72c4bbbf7e}
+      \strng{bibnamehash}{0f52a11acf86e8c9ccdcfe72c4bbbf7e}
+      \strng{authorbibnamehash}{0f52a11acf86e8c9ccdcfe72c4bbbf7e}
+      \strng{authornamehash}{0f52a11acf86e8c9ccdcfe72c4bbbf7e}
+      \strng{authorfullhash}{0f52a11acf86e8c9ccdcfe72c4bbbf7e}
+      \strng{authorfullhashraw}{0f52a11acf86e8c9ccdcfe72c4bbbf7e}
+      \field{sortinit}{N}
+      \field{sortinithash}{22369a73d5f88983a108b63f07f37084}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)}
+      \field{title}{{FSGAN}: Subject Agnostic Face Swapping and Reenactment}
+      \field{year}{2019}
+      \field{pages}{7184\bibrangedash 7193}
+      \range{pages}{10}
+    \endentry
+    \entry{deepfacelab}{article}{}{}
+      \true{moreauthor}
+      \true{morelabelname}
+      \name{author}{10}{}{%
+        {{hash=f1fde25c4704cca0ddf17db4fa63d3fb}{%
+           family={Perov},
+           familyi={P\bibinitperiod},
+           given={Ivan},
+           giveni={I\bibinitperiod}}}%
+        {{hash=ca410f36f902cfd51ab37b4fde2675a8}{%
+           family={Gao},
+           familyi={G\bibinitperiod},
+           given={Daiwei},
+           giveni={D\bibinitperiod}}}%
+        {{hash=f20173dc638db517d342e32f43f1676f}{%
+           family={Chervoniy},
+           familyi={C\bibinitperiod},
+           given={Nikolay},
+           giveni={N\bibinitperiod}}}%
+        {{hash=4bdd3bf3f25ac6250ac19a945688a6f1}{%
+           family={Liu},
+           familyi={L\bibinitperiod},
+           given={Kunlin},
+           giveni={K\bibinitperiod}}}%
+        {{hash=bea73fa023e9f6f13e562154f4e072f3}{%
+           family={Marangonda},
+           familyi={M\bibinitperiod},
+           given={Sugasa},
+           giveni={S\bibinitperiod}}}%
+        {{hash=e483bc6e90b0f6c09cbd2fd802bdf763}{%
+           family={Umé},
+           familyi={U\bibinitperiod},
+           given={Chris},
+           giveni={C\bibinitperiod}}}%
+        {{hash=c4a70382e084fd99c31a72f3e48f7d89}{%
+           family={Dpfks},
+           familyi={D\bibinitperiod},
+           given={Mr},
+           giveni={M\bibinitperiod}}}%
+        {{hash=56db97785d4c0abe6995380701c5a5ae}{%
+           family={Slemnev},
+           familyi={S\bibinitperiod},
+           given={Carl},
+           giveni={C\bibinitperiod}}}%
+        {{hash=e8adc1788926113d64ddd05706c390e1}{%
+           family={Hou},
+           familyi={H\bibinitperiod},
+           given={Zhenyu},
+           giveni={Z\bibinitperiod}}}%
+        {{hash=0e9a8575096cc6d0bf87f817625fe9d4}{%
+           family={Fan},
+           familyi={F\bibinitperiod},
+           given={Huaning},
+           giveni={H\bibinitperiod}}}%
+      }
+      \strng{namehash}{26502e4463bcd24e2f3c8f1f7ed9c2a9}
+      \strng{fullhash}{26502e4463bcd24e2f3c8f1f7ed9c2a9}
+      \strng{fullhashraw}{26502e4463bcd24e2f3c8f1f7ed9c2a9}
+      \strng{bibnamehash}{26502e4463bcd24e2f3c8f1f7ed9c2a9}
+      \strng{authorbibnamehash}{26502e4463bcd24e2f3c8f1f7ed9c2a9}
+      \strng{authornamehash}{26502e4463bcd24e2f3c8f1f7ed9c2a9}
+      \strng{authorfullhash}{26502e4463bcd24e2f3c8f1f7ed9c2a9}
+      \strng{authorfullhashraw}{26502e4463bcd24e2f3c8f1f7ed9c2a9}
+      \field{sortinit}{P}
+      \field{sortinithash}{ff3bcf24f47321b42cb156c2cc8a8422}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{arXiv preprint arXiv:2005.05535}
+      \field{title}{{DeepFaceLab}: Integrated, flexible and extensible face-swapping framework}
+      \field{year}{2020}
+    \endentry
+    \entry{facedancer}{inproceedings}{}{}
+      \name{author}{4}{}{%
+        {{hash=366edc46218f554d00d2dceb8d819ad6}{%
+           family={Rosberg},
+           familyi={R\bibinitperiod},
+           given={Felix},
+           giveni={F\bibinitperiod}}}%
+        {{hash=a59a6a8c52052a226faa7105acb0d4ae}{%
+           family={Aksoy},
+           familyi={A\bibinitperiod},
+           given={Erhan},
+           giveni={E\bibinitperiod}}}%
+        {{hash=49f0d0d53e2dfdabbdc348a912b58725}{%
+           family={Tschernezki},
+           familyi={T\bibinitperiod},
+           given={Vadim},
+           giveni={V\bibinitperiod}}}%
+        {{hash=a794e0fc7e13a7739aec50d3fe9855b0}{%
+           family={Wandt},
+           familyi={W\bibinitperiod},
+           given={Bastian},
+           giveni={B\bibinitperiod}}}%
+      }
+      \strng{namehash}{36fe8631ec5126a6f9a2283f15eb79ee}
+      \strng{fullhash}{36fe8631ec5126a6f9a2283f15eb79ee}
+      \strng{fullhashraw}{36fe8631ec5126a6f9a2283f15eb79ee}
+      \strng{bibnamehash}{36fe8631ec5126a6f9a2283f15eb79ee}
+      \strng{authorbibnamehash}{36fe8631ec5126a6f9a2283f15eb79ee}
+      \strng{authornamehash}{36fe8631ec5126a6f9a2283f15eb79ee}
+      \strng{authorfullhash}{36fe8631ec5126a6f9a2283f15eb79ee}
+      \strng{authorfullhashraw}{36fe8631ec5126a6f9a2283f15eb79ee}
+      \field{sortinit}{R}
+      \field{sortinithash}{5e1c39a9d46ffb6bebd8f801023a9486}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)}
+      \field{title}{{FaceDancer}: High-Fidelity Pose- and Occlusion-Aware Face Swapping}
+      \field{year}{2023}
+      \field{pages}{3228\bibrangedash 3237}
+      \range{pages}{10}
+    \endentry
+    \entry{fows}{inproceedings}{}{}
+      \name{author}{3}{}{%
+        {{hash=a2d39551d423c8e4a6eeed143140af9c}{%
+           family={Ziglio},
+           familyi={Z\bibinitperiod},
+           given={Riccardo},
+           giveni={R\bibinitperiod}}}%
+        {{hash=445ef3aa0dc2a72f7e98afe3cf582526}{%
+           family={Pasquini},
+           familyi={P\bibinitperiod},
+           given={Cecilia},
+           giveni={C\bibinitperiod}}}%
+        {{hash=867b23948288ee3a8c9dd4913fd4b7d9}{%
+           family={Ranise},
+           familyi={R\bibinitperiod},
+           given={Silvio},
+           giveni={S\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {IEEE}%
+      }
+      \strng{namehash}{37fb49708911b2b90743cb24cacbc981}
+      \strng{fullhash}{37fb49708911b2b90743cb24cacbc981}
+      \strng{fullhashraw}{37fb49708911b2b90743cb24cacbc981}
+      \strng{bibnamehash}{37fb49708911b2b90743cb24cacbc981}
+      \strng{authorbibnamehash}{37fb49708911b2b90743cb24cacbc981}
+      \strng{authornamehash}{37fb49708911b2b90743cb24cacbc981}
+      \strng{authorfullhash}{37fb49708911b2b90743cb24cacbc981}
+      \strng{authorfullhashraw}{37fb49708911b2b90743cb24cacbc981}
+      \field{sortinit}{Z}
+      \field{sortinithash}{96892c0b0a36bb8557c40c49813d48b3}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{2025 13th International Workshop on Biometrics and Forensics (IWBF)}
+      \field{title}{Spotting Tell-Tale Visual Artifacts in Face Swapping Videos: Strengths and Pitfalls of {CNN} Detectors}
+      \field{year}{2025}
+      \verb{doi}
+      \verb 10.1109/IWBF63717.2025.11113429
+      \endverb
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+

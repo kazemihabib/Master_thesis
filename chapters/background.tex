@@ -27,7 +27,12 @@ encoder with an LLM, what ``instruction-tuned'' and ``chat'' models are, and wha
 ``zero-shot'' means. Explain the input format (image + text prompt -> text
 answer) since your whole method depends on it. Mention the specific model
 families you will evaluate at a high level (defer the exact list to
-\Cref{chap:setup}).}
+\Cref{chap:methodology}).}
+
+\guide{Give a high-level overview of the inference pipeline (offline batched
+serving with vLLM, continuous batching, memory management) so the reader
+understands why certain choices in \Cref{chap:methodology} were made. Keep it short -- the
+exact configuration lives in \Cref{chap:methodology}.}
 
 \subsection{Prompting and In-Context Behaviour}
 \guide{Explain prompting concepts you rely on: zero-shot vs few-shot,

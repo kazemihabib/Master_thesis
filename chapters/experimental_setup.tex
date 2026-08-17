@@ -3,71 +3,274 @@
 % Purpose: every concrete detail needed to REPRODUCE your experiments. If
 % Chapter 4 is "what and why", this is "exactly how, with which numbers". A
 % careful reader should be able to rerun your study from this chapter.
-% Tip: prefer tables for models, datasets, and hyperparameters. State versions.
 % =============================================================
 \chapter{Experimental Setup}
 \label{chap:setup}
 
-\guide{One-paragraph overview of the experimental campaign: how many models,
-datasets, prompts, and the total number of (model, prompt, dataset) runs.}
+This chapter records the concrete configuration of the experiments:
+the datasets and how they were sampled, the multimodal large language models
+(MLLMs) evaluated, the prompts used to elicit a verdict, the decoding settings,
+and the hardware and software environment. Where \Cref{chap:methodology}
+explains \emph{what} was done and \emph{why}, this chapter states \emph{exactly
+how}, so that the study can be reproduced from the open configuration files.
+
+The experiments are organised as a funnel of zero-shot stages followed by a
+separate group of few-shot in-context-learning (ICL) studies. \emph{Stage~1} screens
+all \num{9} models against \num{28} label-wording variants; \emph{Stage~2}
+sweeps prompt structure and persona for the models carried forward; \emph{Stage~3}
+adds explicit chain-of-thought (CoT) reasoning; and the \emph{few-shot} studies
+prepends labelled demonstration images. The two screening stages run on a small,
+class-balanced subset of each dataset to keep the large prompt grid affordable,
+and the winning configurations are then re-evaluated on the \emph{full}
+datasets. Every run is one cell of a Task~$\times$~Models~$\times$~Datasets~$\times$~Prompts
+matrix (\Cref{chap:methodology}); the concrete values of each axis are given
+below.
 
 \section{Datasets}
-\guide{For EACH dataset (e.g. FOWS, GOTCHA): describe its source, size, the
-real/fake balance, the manipulation generators it contains, how you sampled it
-(e.g. random 1000), and any preprocessing (frame selection, cropping). A summary
-table is expected -- see below. Note licensing/ethical aspects if relevant.}
+\label{sec:datasets}
+
+Two face-swap datasets are used, \textbf{FOWS} (\emph{Face Occlusion With
+Swapping})~\cite{fows} and \textbf{GOTCHA}~\cite{gotcha}. Both are collections of
+video frames of a single subject, organised into an \emph{occluded} and a
+\emph{non-occluded} condition, and both pair, for every subject and challenge, an
+original (\emph{real}) recording with one or more face-swapped (\emph{fake})
+versions produced by different generators. The occlusions are produced by
+\emph{challenges}: the subject is asked to move a hand or a supplied object in
+front of their face, which is known to induce visible artefacts in face-swapped
+frames. Because no model is trained or
+fine-tuned, the datasets' own train/test partition is irrelevant to the zero-shot
+evaluation; it matters only for the few-shot studies, whose demonstration images
+are drawn exclusively from the training split (\Cref{sec:prompts}).
+
+FOWS was collected by Ziglio et al.~\cite{fows} from seven volunteers performing
+hand- and object-occlusion challenges; the version used here provides one real
+source and four face-swap generators (SimSwap, GHOST, FaceDancer, and
+DeepFaceLab, \texttt{dlc}), yielding a strongly fake-skewed class balance (four
+fake frames per real frame). GOTCHA~\cite{gotcha} is used through the subset and
+protocol defined by Ziglio et al.~\cite{fows}: only the hand- and object-occlusion
+challenges are retained, with two swap generators, DeepFaceLab (\texttt{DFL}) and
+FSGAN, giving a mildly real-skewed balance. \Cref{tab:datasets} reports the exact
+composition of the full sets as evaluated; the class imbalance in both (in
+opposite directions) is the reason the evaluation in \Cref{chap:results} reports
+balanced metrics rather than plain accuracy.
 
 \begin{table}[t]
 	\centering
-	\caption{Datasets used in the evaluation.}
+	\caption{Full datasets used in the evaluation, by class, occlusion
+	condition, and generator. Counts are frames.}
 	\label{tab:datasets}
-	\begin{tabular}{lrrl}
+	\begin{tabular}{llrr}
 		\toprule
-		Dataset & \#Real & \#Fake & Generators \\
+		 & & \textbf{FOWS} & \textbf{GOTCHA} \\
 		\midrule
-		FOWS    & --     & --     & \dots \\
-		GOTCHA  & --     & --     & \dots \\
+		\multirow{2}{*}{Class}
+		 & Real (original)     & \num{8400}  & \num{83771} \\
+		 & Fake (swapped)      & \num{33600} & \num{76264} \\
+		\midrule
+		\multirow{2}{*}{Occlusion}
+		 & Occluded            & \num{21000} & \num{101315} \\
+		 & Non-occluded        & \num{21000} & \num{58720} \\
+		\midrule
+		\multirow{6}{*}{Generator}
+		 & Original (real)     & \num{8400}  & \num{83771} \\
+		 & SimSwap             & \num{8400}  & --          \\
+		 & GHOST               & \num{8400}  & --          \\
+		 & FaceDancer          & \num{8400}  & --          \\
+		 & DeepFaceLab         & \num{8400}  & \num{37875} \\
+		 & FSGAN               & --          & \num{38389} \\
+		\midrule
+		\textbf{Total} & & \num{42000} & \num{160035} \\
 		\bottomrule
 	\end{tabular}
 \end{table}
 
+\paragraph{Balanced screening subset.}
+Running the large Stage-1 and Stage-2 prompt grids over the full datasets would
+be prohibitively expensive, so the two screening stages use a fixed, class- and
+condition-balanced subset of \num{1344} frames per dataset. The subset is
+balanced across the label (\num{672} real / \num{672} fake) and the occlusion
+condition (\num{672} occluded / \num{672} non-occluded), and is stratified by
+generator: for FOWS, \num{672} real frames and \num{168} frames from each of the
+four fake generators; for GOTCHA, \num{672} real frames and \num{336} frames
+from each of the two fake generators. The same frozen subset is reused across
+all screening runs so that per-model prompt comparisons are made on identical
+images. The winning configuration of each stage is then re-evaluated on the full
+datasets of \Cref{tab:datasets}.
+
 \section{Models}
-\guide{List the MLLMs you evaluated with enough detail to identify them exactly:
-name, size/parameters, the exact checkpoint/revision, and the backend used to run
-them. Put this in a table. Mention any model-specific settings (chat template,
-LoRA, quantisation) and why.}
+\label{sec:models}
+
+Nine open-weight MLLMs were evaluated, spanning dense and mixture-of-experts
+(MoE) architectures and a range of parameter counts. They are listed in
+\Cref{tab:models} together with the exact Hugging Face checkpoint used to
+identify them unambiguously. All models are run through the same vLLM backend
+(\Cref{sec:hwenv}) in their instruction-tuned/chat form and are used strictly
+zero-shot: no fine-tuning, and no LoRA training on the task.
+
+For models that expose an optional ``thinking'' mode, that mode is disabled by
+default (\texttt{enable\_thinking = false}, via a custom chat template where
+required) so that the zero-shot verdict is a direct answer; native thinking is
+studied separately and deliberately in Stage~3. Two models need model-specific
+handling: \texttt{Phi-4-multimodal-instruct} is served with its vision LoRA
+adapter and a batch size of~1, and \texttt{Llama-4-Scout} is the
+\texttt{w4a16}-quantised release. Context lengths are left at the model default
+except where a checkpoint required an explicit cap to fit memory (recorded in the
+configuration files).
 
 \begin{table}[t]
 	\centering
-	\caption{Multimodal LLMs evaluated.}
+	\caption{Multimodal LLMs evaluated. All are run zero-shot through vLLM with
+	greedy decoding; ``A3B'' denotes a mixture-of-experts model with $\approx$3B
+	active parameters.}
 	\label{tab:models}
-	\begin{tabular}{llr}
+	\begin{tabular}{lll}
 		\toprule
-		Model & Backend & Params \\
+		Model (alias) & Checkpoint & Type \\
 		\midrule
-		\dots & vLLM & \dots \\
+		Qwen3.6-35B-A3B      & \texttt{Qwen/Qwen3.6-35B-A3B}                     & MoE (A3B) \\
+		Qwen3.6-27B          & \texttt{Qwen/Qwen3.6-27B}                         & Dense \\
+		gemma-4-31B-it       & \texttt{google/gemma-4-31B-it}                    & Dense \\
+		Kimi-VL-A3B-Instruct & \texttt{moonshotai/Kimi-VL-A3B-Instruct}          & MoE (A3B) \\
+		InternVL3.5-30B-A3B  & \texttt{OpenGVLab/InternVL3\_5-30B-A3B-HF}         & MoE (A3B) \\
+		Nemotron-Nano-12B-VL & \texttt{nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL}     & Dense \\
+		Llama-4-Scout-17B    & \texttt{RedHatAI/Llama-4-Scout-17B-16E \dots w4a16} & MoE (16E), w4a16 \\
+		Phi-4-multimodal     & \texttt{microsoft/Phi-4-multimodal-instruct}      & Dense + vision LoRA \\
+		GLM-4.6V-Flash       & \texttt{zai-org/GLM-4.6V-Flash}                    & Dense \\
 		\bottomrule
 	\end{tabular}
 \end{table}
 
 \section{Prompts}
-\guide{Enumerate the prompt variants actually used in experiments (they were
-designed in \Cref{chap:methodology}). Give each a short name you will reuse in
-results tables. Consider putting the full prompt texts in \Cref{app:prompts}
-and referencing them here.}
+\label{sec:prompts}
+
+The staged prompt design and the reasoning behind it are described in
+\Cref{sec:prompting}; this section records the concrete variants used at each
+stage. Every prompt asks for a single-image verdict and constrains the answer to
+two words (one standing for \emph{real} and one for \emph{fake}), which the
+response parser maps back to a label (\Cref{sec:metrics}). Full prompt texts are
+given in \Cref{app:prompts}; the naming introduced here is reused in
+\Cref{chap:results}.
+
+\paragraph{Stage 1: label wording.}
+Stage~1 fixes a single-turn, direct-answer template and varies only the two
+words that denote the classes. Four ``real'' words \{\emph{authentic}, \emph{bona
+fide}, \emph{original}, \emph{real}\} are crossed with seven ``fake'' words
+\{\emph{fake}, \emph{deepfake}, \emph{generated}, \emph{faceswapped},
+\emph{manipulated}, \emph{synthetic}, \emph{modified}\}, giving \num{28} wording
+variants. All \num{9} models are run over all \num{28} variants on the balanced
+subset of both datasets. The (real, fake) word pair selected for each
+carried-forward model, by the criterion of \Cref{sec:protocol}, is fixed
+for the remaining stages (\Cref{tab:stage2words}).
+
+\begin{table}[t]
+	\centering
+	\caption{Stage-1 label wording carried forward per model into Stage~2. Each
+	pair is selected on the balanced subset; selection results are reported in
+	\Cref{chap:results}.}
+	\label{tab:stage2words}
+	\begin{tabular}{lll}
+		\toprule
+		Model & ``real'' word & ``fake'' word \\
+		\midrule
+		Qwen3.6-35B-A3B & authentic & faceswapped \\
+		Qwen3.6-27B     & bona fide & faceswapped \\
+		gemma-4-31B-it  & bona fide & generated \\
+		Kimi-VL-A3B     & original  & synthetic \\
+		Llama-4-Scout   & authentic & fake \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\paragraph{Stage 2: prompt structure and persona.}
+With the wording fixed, Stage~2 varies the \emph{structure} of the prompt. Each
+carried-forward model is swept over \num{34} structures: four base templates
+that place either a short task description or a definition of ``face swap'' in
+either the system or the user message, plus five persona templates each
+instantiated with six analyst personas (deepfake specialist, forensic examiner,
+VFX artist, biometric analyst, computer-vision researcher, and content-integrity
+moderator). This sweep runs on the balanced subset; the single best structure
+per model is then re-evaluated on the full datasets.
+
+\paragraph{Stage 3: chain-of-thought.}
+Stage~3 takes each model's winning Stage-2 prompt and adds an explicit
+instruction to reason before answering (``first briefly explain your reasoning,
+then answer with exactly one phrase''). A complementary variant instead enables
+the model's \emph{native} thinking mode on the same prompt, over a small fixed
+set of frames, so that the raw reasoning trace can be inspected qualitatively.
+Stage~3 is run on both the balanced subset and the full datasets.
+
+\paragraph{Few-shot in-context learning.}
+The few-shot studies prepend $n=10$ labelled demonstration images to the test
+image. Demonstrations are drawn only from the training split and organised into
+four frozen \emph{pools} (one per dataset $\times$ occlusion condition), each
+holding ten real and ten fake exemplars. Demonstrations are varied by
+\emph{composition} (e.g.\ all-fake, all-real, interleaved), by presentation
+\emph{method} (a single user message vs.\ one chat turn per demonstration), and
+by \emph{order}; cross-dataset pairings (e.g.\ FOWS demonstrations with a GOTCHA
+test image) are included (see \Cref{sec:prompting} for the rationale). Few-shot
+results are compared to the zero-shot Stage-2 baseline \emph{per image} (a
+row-level join on image identity) so that the measured difference reflects the
+demonstrations alone.
 
 \section{Decoding and Hyperparameters}
-\guide{State sampling settings (temperature, max tokens, etc.), batch sizes, and
-anything that affects determinism. If you used temperature 0 for reproducibility,
-say so and say why.}
+\label{sec:decoding}
+
+All experiments use \textbf{greedy, deterministic decoding}: the sampling
+temperature is fixed at \num{0.0} and the vLLM engine seed at~\num{0}. Combined
+with the fact that the models are frozen, this makes each (model, prompt, image)
+verdict reproducible run-to-run. The generation budget is \num{512} tokens for
+the direct-answer stages (Stages~1--2), raised to \num{1024} for the
+chain-of-thought stage (Stage~3), and higher still for the native-thinking
+variant, whose traces run long and would otherwise be truncated before the final
+verdict.
+
+Batch size affects only throughput, not the outputs. Zero-shot stages use a
+batch size of \num{150} (\num{1} for \texttt{Phi-4-multimodal}, which is served
+with its vision LoRA), and the few-shot studies use \num{32}, reflecting the
+$\sim\!11\times$ larger prompt of carrying eleven images per request. Exactly one
+model is loaded per operating-system subprocess, following the memory-management
+strategy of \Cref{sec:pipeline}.
 
 \section{Hardware and Software Environment}
-\guide{Report the compute: GPU type and count, CUDA version, key library
-versions (e.g. vLLM, PyTorch, transformers), and Python version. This is what
-makes the work reproducible and is expected in a CS thesis.}
+\label{sec:hwenv}
+
+All inference was run on a single \textbf{NVIDIA A100 80\,GB} GPU
+(\texttt{tensor\_parallel\_size = 1}) in \texttt{bfloat16}. Serving used
+\textbf{vLLM~0.20.2} (offline batched inference, prefix caching enabled) on a
+\textbf{CUDA~13.0} PyTorch build, under \textbf{Python~3.12}; dependencies are
+pinned and reproduced with \texttt{uv} from the project lockfile. vLLM's offline
+batched serving~\cite{vllm} is what makes evaluating tens of thousands of frames
+across nine models tractable on a single GPU. All checkpoints and their per-model
+settings (chat templates, context caps, quantisation, LoRA) are stored as
+version-controlled TOML configuration files alongside the study definitions.
 
 \section{Evaluation Metrics and Reproducibility}
-\guide{Restate, concisely, the metrics you will report (defined in
-\Cref{chap:background}) and how results are computed from the raw outputs. Point to
-where the code/configs live if the work is open. State how randomness is
-controlled.}
+\label{sec:metrics}
+
+\paragraph{From free text to a label.}
+Each model returns free text, which is reduced to a verdict by a
+\emph{single-phrase} parser: it scans the output for the prompt's declared real
+and fake words and takes the first (or last) match as the predicted label. An
+output containing neither word is recorded as a \emph{parse failure}, kept
+distinct from a wrong answer (the rationale is given in \Cref{sec:parsing}). The
+ground-truth label of each frame is determined by its generator folder
+(original~$=$~real, otherwise~$=$~fake).
+
+\paragraph{Metrics.}
+Two metric roles are distinguished (see \Cref{sec:protocol}). Winner
+\emph{selection} inside the funnel uses the Matthews Correlation Coefficient
+(MCC). Final \emph{reporting} in \Cref{chap:results} uses accuracy, precision,
+recall, and F1, plus \textbf{balanced accuracy} and macro-averaged F1 (all
+defined in \Cref{chap:background}), which are the primary figures of merit given
+the class imbalance of both datasets (\Cref{tab:datasets}). Parse-failure rate is
+reported alongside. Metrics are computed both in aggregate and broken down by
+dataset, occlusion condition, and generator, so that generalisation behaviour
+across manipulation types is visible.
+
+\paragraph{Reproducibility.}
+Determinism is controlled by greedy decoding (temperature~\num{0}) and a fixed
+engine seed (\Cref{sec:decoding}). Raw outputs are written as append-only JSONL,
+keyed by image path, which both makes runs resumable and preserves every raw
+generation for re-parsing or error analysis. The pipeline, study definitions,
+prompts, and model configurations are all version-controlled, so any reported
+number can be traced back to the exact configuration that produced it.

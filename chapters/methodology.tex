@@ -1,64 +1,378 @@
 % =============================================================
-% CHAPTER 4 — METHODOLOGY / PROPOSED APPROACH
-% Purpose: describe WHAT YOU DID and WHY, at the level of design and reasoning --
-% not raw configuration values (those go in Chapter 5). This is the core
-% intellectual contribution chapter. A reader should understand your approach
-% well enough to judge whether it is sound; a different reader should be able to
-% reimplement it from this + Chapter 5.
-% Tip: justify every design choice. "I did X" is weak; "I did X because Y, as
-% opposed to Z which would have..." is a thesis.
+% CHAPTER 4 — METHODOLOGY AND EXPERIMENTAL FRAMEWORK
 % =============================================================
-\chapter{Methodology}
+\chapter{Methodology and Experimental Framework}
 \label{chap:methodology}
 
-\guide{Open with a high-level overview of your approach in a paragraph, ideally
-with a system diagram (see the figure stub below). The reader should grasp the
-whole pipeline before you dive into parts.}
+This chapter presents the methodology and experimental framework designed to benchmark and evaluate Multimodal Large Language Models (MLLMs) for zero-shot and few-shot face-swap detection. Rather than fine-tuning models on task-specific datasets, this work evaluates the intrinsic visual forensic capabilities of off-the-shelf instruction-tuned MLLMs under controlled prompting regimes.
+
+The remainder of this chapter is organised as follows:
+\Cref{sec:formulation} defines the formal task formulation and deterministic response-parsing protocol;
+\Cref{sec:datasets} details the benchmark datasets, manipulation generators, and the stratified screening benchmark;
+\Cref{sec:models_infra} presents the evaluated model suite, the inference pipeline, and GPU memory isolation architecture;
+\Cref{sec:staged_prompting} details the staged zero-shot prompt engineering funnel;
+\Cref{sec:few_shot_method} describes the few-shot in-context learning experimental design; and
+\Cref{sec:eval_protocol} outlines the evaluation protocol, performance metrics, and reproducibility environment.
+
+% -------------------------------------------------------------
+\section{Problem Formulation and Response Parsing}
+\label{sec:formulation}
+
+\subsection{Mathematical Task Formulation}
+
+We formulate single-image face-swap detection as a binary classification problem. Let $\mathcal{X}$ denote the space of RGB facial images. An input image $x \in \mathcal{X}$ is associated with a ground-truth label $y \in \mathcal{Y} = \{\text{real}, \text{fake}\}$, where:
+\begin{itemize}
+    \item $\text{real}$ ($y = 0$): corresponds to an authentic, unaltered facial photograph of a person;
+    \item $\text{fake}$ ($y = 1$): corresponds to a digitally manipulated image in which the facial identity of the original subject has been replaced by a target identity via an automated face-swapping algorithm.
+\end{itemize}
+
+Let $m$ denote an off-the-shelf instruction-tuned MLLM. Given an input facial query image $x$, a prompt $p$, and a hyperparameter configuration $\theta_{\text{gen}}$ (such as sampling temperature and maximum output sequence length), the model autoregressively generates an output text sequence $t$:
+\begin{equation}
+    t = m(p, x; \theta_{\text{gen}})
+\end{equation}
+
+\subsection{Prompt Parameterization}
+
+To study the influence of prompt design without confounding effects, a prompt $p$ is treated as a structured composition of modular dimensions rather than an arbitrary text string:
+\begin{equation}
+    p = \langle \mathcal{V}, \mathcal{S}, \mathcal{R}, \mathcal{C}, \mathcal{D} \rangle
+\end{equation}
+where:
+\begin{itemize}
+    \item $\mathcal{V} = (w_{\text{real}}, w_{\text{fake}})$ represents the \emph{lexical pair} of candidate words specifying the target classes;
+    \item $\mathcal{S}$ represents the \emph{structural formatting and contextual explanation} (e.g., instructions and background definitions, placed across conversational turns);
+    \item $\mathcal{R}$ specifies an optional \emph{role or persona framing} assigned to the model;
+    \item $\mathcal{C}$ governs the \emph{reasoning strategy} (e.g., direct classification versus eliciting visual rationale steps);
+    \item $\mathcal{D} = \{(x_1^{(d)}, y_1^{(d)}), \dots, (x_n^{(d)}, y_n^{(d)})\}$ denotes an optional ordered sequence of $n$ labelled demonstration examples for in-context learning ($n=0$ in zero-shot configurations).
+\end{itemize}
+The concrete parameter spaces and systematic exploration protocols for each of these dimensions are detailed in \Cref{sec:staged_prompting} (for zero-shot prompting stages) and \Cref{sec:few_shot_method} (for few-shot in-context learning).
+
+\subsection{Deterministic Parsing and Failure Semantics}
+
+Because MLLMs emit natural language, benchmarking their predictions requires a deterministic mapping from the generated token sequence $t$ to the binary label space $\mathcal{Y} = \{\text{real}, \text{fake}\}$. We define a deterministic parser $\pi(t)$ that maps the generated output to a predicted label according to the declared extraction policy:
+\begin{equation}
+    \hat{y} = \pi(t) \in \{\text{real}, \text{fake}, \bot\}
+\end{equation}
+where $\bot$ denotes a distinguished \textbf{parse-failure} symbol emitted when the model fails to produce an output that can be mapped to either \emph{real} or \emph{fake} (e.g., due to model refusals or not following the prompt instructions).
+
+% -------------------------------------------------------------
+\section{Benchmark Datasets and Manipulation Scenarios}
+\label{sec:datasets}
+
+To evaluate model generalisation across distinct manipulation algorithms and environmental conditions, we employ two extensive video-frame face-swap benchmarks: \textbf{FOWS} (\emph{Face Occlusion With Swapping})~\cite{fows} and \textbf{GOTCHA}~\cite{gotcha}. Both datasets feature single subjects recorded under controlled physical interactions and subjected to state-of-the-art face-swapping pipelines.
+
+\subsection{Dataset Profiles and Synthesis Methods}
+
+\paragraph{FOWS Dataset.}
+The FOWS dataset~\cite{fows} was specifically designed to investigate the vulnerability of face-swapping algorithms to physical occlusions. It contains recordings from seven subjects performing dynamic occlusion challenges. For each original recording (real), manipulated counterparts (fake) were generated using four distinct modern face-swap architectures:
+\begin{itemize}
+    \item \textbf{SimSwap}~\cite{simswap}: An identity-preserving framework built on an insight-face feature extractor that generalizes to arbitrary target identities without retraining.
+    \item \textbf{GHOST}~\cite{ghost}: A high-fidelity, one-shot face-swapping pipeline featuring eye-detail preservation and structural consistency modules.
+    \item \textbf{FaceDancer}~\cite{facedancer}: A single-stage, high-resolution generator capable of handling extreme poses and facial expressions.
+    \item \textbf{DeepFaceLab (DFL)}~\cite{deepfacelab}: A widely-used autoencoder-based architecture trained per identity-pair, representing the gold standard in bespoke deepfake creation.
+\end{itemize}
+Because each real sequence is paired with outputs from all four generators, FOWS exhibits a strong class imbalance: four fake frames for every real frame ($1:4$ ratio, $20\%$ real, $80\%$ fake), totalling \num{42000} frames.
+
+\paragraph{GOTCHA Dataset.}
+The GOTCHA dataset~\cite{gotcha} evaluates face-swapping methods under challenging real-world interactions. Following the protocol curated by Ziglio et al.~\cite{fows}, we evaluate the hand- and object-occlusion challenges across two synthesis generators:
+\begin{itemize}
+    \item \textbf{DeepFaceLab (DFL)}~\cite{deepfacelab}: Subject-specific deep autoencoding models.
+    \item \textbf{FSGAN}~\cite{fsgan}: A subject-agnostic, single-source generator capable of reenacting pose, expression, and face-swapping in unconstrained scenarios.
+\end{itemize}
+GOTCHA contains \num{160035} frames with a mildly real-skewed distribution (\num{83771} real vs.\ \num{76264} fake), providing a complementary testbed to FOWS.
+
+\Cref{tab:datasets} summarizes the frame distributions across both benchmarks by class, occlusion condition, and generator.
+
+\begin{table}[t]
+	\centering
+	\caption{Composition of the full evaluation benchmarks by class, occlusion condition, and generator (frame counts).}
+	\label{tab:datasets}
+	\begin{tabular}{llrr}
+		\toprule
+		\textbf{Dimension} & \textbf{Category} & \textbf{FOWS} & \textbf{GOTCHA} \\
+		\midrule
+		\multirow{2}{*}{Class}
+		 & Real (authentic)    & \num{8400}  & \num{83771} \\
+		 & Fake (manipulated)  & \num{33600} & \num{76264} \\
+		\midrule
+		\multirow{2}{*}{Occlusion}
+		 & Occluded            & \num{21000} & \num{101315} \\
+		 & Non-occluded        & \num{21000} & \num{58720} \\
+		\midrule
+		\multirow{6}{*}{Generator}
+		 & Original (Real)     & \num{8400}  & \num{83771} \\
+		 & SimSwap             & \num{8400}  & --          \\
+		 & GHOST               & \num{8400}  & --          \\
+		 & FaceDancer          & \num{8400}  & --          \\
+		 & DeepFaceLab         & \num{8400}  & \num{37875} \\
+		 & FSGAN               & --          & \num{38389} \\
+		\midrule
+		\textbf{Total Frames} & & \num{42000} & \num{160035} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsection{Physical Occlusion Challenges}
+
+Face-swapping generators typically operate by aligning facial landmarks, segmenting facial boundaries, and blending a synthetic identity mask into the source frame. Physical occlusions introduce sharp spatial discontinuities that disrupt landmark detection and skin-blending boundaries, creating forensic artifacts:
+\begin{itemize}
+    \item \textbf{Hand Occlusions}: The subject moves their fingers or palm across facial features, challenging the generator to preserve natural skin texture boundaries without ghostly blending.
+    \item \textbf{Object Occlusions}: Opaque objects (e.g., eyeglasses, cups, pens) pass in front of the face, testing whether the model hallucinates synthetic skin over the object or produces edge boundary artifacts.
+\end{itemize}
+Evaluating both occluded and non-occluded partitions allows us to measure whether MLLMs exploit structural occlusion inconsistencies as forensic cues.
+
+\subsection{Stratified Balanced Screening Benchmark}
+\label{subsec:screening_subset}
+
+Conducting exhaustive combinatorial prompt sweeps ($28$ lexical pairs $\times$ $34$ structural variants) across $9$ large vision-language models on the complete corpus of $202{,}035$ images is computationally prohibitive, requiring millions of forward passes.
+
+To enable unconfounded, systematic prompt exploration within feasible compute budgets, we constructed a frozen \textbf{Stratified Balanced Screening Benchmark} consisting of exactly \num{1344} frames per dataset (\num{2688} frames total):
+\begin{enumerate}
+    \item \textbf{Class Parity}: Exactly \num{672} real frames and \num{672} fake frames per dataset, ensuring baseline accuracy corresponds strictly to $50.0\%$.
+    \item \textbf{Condition Balance}: Exactly \num{672} occluded frames and \num{672} non-occluded frames per dataset.
+    \item \textbf{Generator Stratification}:
+    \begin{itemize}
+        \item In FOWS, the \num{672} fake frames are divided equally across the four generators (\num{168} frames each for SimSwap, GHOST, FaceDancer, and DeepFaceLab).
+        \item In GOTCHA, the \num{672} fake frames are divided equally between the two generators (\num{336} frames each for DeepFaceLab and FSGAN).
+    \end{itemize}
+\end{enumerate}
+
+\paragraph{Two-Stage Evaluation Funnel.}
+All wide combinatorial explorations (Stage 1 Lexical Grid and Stage 2 Structural/Persona Sweeps) were executed on this frozen benchmark. Only the surviving Pareto-optimal configurations per model were promoted to full evaluation across the complete \num{202035} frames. This guarantees that all initial comparative rankings are computed on identical, perfectly balanced image sets without overfitting to dataset-specific class majorities.
+
+% -------------------------------------------------------------
+\section{Model Suite and Inference Infrastructure}
+\label{sec:models_infra}
+
+\subsection{Evaluated Multimodal Large Language Models}
+
+We evaluate nine state-of-the-art open-weight Multimodal Large Language Models (MLLMs), selected to span diverse parameter scales, dense vs.\ mixture-of-experts (MoE) architectures, and visual encoder topologies. \Cref{tab:models} lists the evaluated models alongside their Hugging Face checkpoints and structural characteristics.
+
+\begin{table}[t]
+	\centering
+	\caption{Multimodal Large Language Models evaluated in the study. All models are evaluated off-the-shelf in instruction-tuned mode under greedy decoding ($T=0$). MoE active parameter counts are indicated where applicable.}
+	\label{tab:models}
+	\begin{tabular}{lll}
+		\toprule
+		\textbf{Model Identifier (Alias)} & \textbf{Checkpoint Identifier} & \textbf{Architecture} \\
+		\midrule
+		Qwen3.6-35B-A3B      & \texttt{Qwen/Qwen3.6-35B-A3B}                     & MoE ($\approx$3B active) \\
+		Qwen3.6-27B          & \texttt{Qwen/Qwen3.6-27B}                         & Dense \\
+		gemma-4-31B-it       & \texttt{google/gemma-4-31B-it}                    & Dense \\
+		Kimi-VL-A3B-Instruct & \texttt{moonshotai/Kimi-VL-A3B-Instruct}          & MoE ($\approx$3B active) \\
+		InternVL3.5-30B-A3B  & \texttt{OpenGVLab/InternVL3\_5-30B-A3B-HF}         & MoE ($\approx$3B active) \\
+		Nemotron-Nano-12B-VL & \texttt{nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL}     & Dense \\
+		Llama-4-Scout-17B    & \texttt{RedHatAI/Llama-4-Scout-17B-16E \dots w4a16} & MoE (16E, w4a16) \\
+		Phi-4-multimodal     & \texttt{microsoft/Phi-4-multimodal-instruct}      & Dense + vision LoRA \\
+		GLM-4.6V-Flash       & \texttt{zai-org/GLM-4.6V-Flash}                    & Dense \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+All models are queried strictly in their zero-shot instruction-following chat configuration without task-specific parameter fine-tuning or adapter updating. For models equipped with native chain-of-thought or reasoning channels (e.g., token-based thinking tags), these modes were explicitly disabled in Stages 1 and 2 to isolate direct visual perception from extended multi-step generation, and were enabled deliberately in Stage 3.
+
+\subsection{Pipeline Architecture and Resource Management}
+
+Evaluating combinations across nine models, multiple prompt variants, and over $200{,}000$ high-resolution images introduces severe computational and memory bottlenecks. A critical systems-level challenge arises from the serving engine itself: \textsc{vLLM} allocates static CUDA memory blocks for KV-caches and C++/CUDA kernel runtimes upon initialization. Because the engine lacks a native in-process mechanism to cleanly unload checkpoints and release allocated VRAM back to the CUDA driver, attempting to sequentially instantiate multiple large models within a single Python process inevitably causes memory leaks, context fragmentation, and catastrophic CUDA Out-Of-Memory (OOM) crashes.
+
+To solve this problem and ensure high-throughput execution across heterogeneous checkpoints, we designed and implemented a modular evaluation architecture governed by the following engineering principles:
+\begin{enumerate}
+    \item \textbf{Process-Level Memory Isolation (\texttt{spawn} Lifecycle)}: Rather than attempting in-process model swapping, the orchestrator groups all experimental units by model checkpoint and executes each model group in an isolated operating-system subprocess spawned via Python's \texttt{multiprocessing.get\_context("spawn")}. The worker loads the model weights once, processes all assigned image batches and prompt variants, and terminates upon completion. Process exit forces the operating system kernel and CUDA runtime to completely destroy the device context and reclaim all 80\,GB of VRAM, guaranteeing a clean memory state for subsequent models.
+    \item \textbf{Decoupled Configuration Plane}: The experimental matrix ($\text{Task} \times \text{Models} \times \text{Datasets} \times \text{Prompts}$) is specified declaratively via version-controlled TOML files. This cleanly separates study specifications (what to run) from low-level serving parameters (such as per-model chat templates, RoPE scaling, context limits, and AWQ/GPTQ quantization formats), enabling non-breaking extensibility.
+    \item \textbf{Continuous Offline Batching}: Inference is executed using \textsc{vLLM}'s offline batching engine~\cite{vllm} with PagedAttention. We employ dynamic batch sizes of up to \num{150} for zero-shot single-image queries and \num{32} for multi-image few-shot requests ($n+1$ images per query). This maximizes A100 Tensor Core saturation without incurring HTTP server latency overhead.
+    \item \textbf{Resumable Append-Only State Storage}: All generated responses and raw token outputs are recorded in append-only JSONL files indexed by unique image paths. The orchestrator queries existing disk records before dispatching workloads, ensuring that interrupted runs resume instantly without recomputing duplicate forward passes.
+\end{enumerate}
+
+% -------------------------------------------------------------
+\section{Staged Zero-Shot Prompt Engineering Funnel}
+\label{sec:staged_prompting}
+
+A core research objective is understanding how prompt formulation governs an MLLM's visual forensic sensitivity. In practice, a prompt combines multiple interdependent axes: the vocabulary used to label classes, the presence of task definitions, the placement of instructions across conversational turns, the assignment of expert personas, and instructions to elicit multi-step reasoning.
+
+Modifying several factors simultaneously creates confounding interactions. To rigorously isolate the causal impact of each prompt dimension, we formulate a \textbf{Staged Prompt Engineering Funnel} consisting of three progressive screening stages, illustrated in \Cref{fig:prompt_funnel}.
 
 \begin{figure}[t]
 	\centering
-	% \includegraphics[width=0.9\textwidth]{figs/pipeline.png}
-	\guide{Place a system/pipeline diagram here: image(s) + prompt -> MLLM ->
-	parsed verdict -> metrics. A good overview figure is worth a page of prose.}
-	\caption{Overview of the proposed detection pipeline.}
-	\label{fig:pipeline}
+	\fbox{\parbox[c][0.18\textheight][c]{0.9\textwidth}{\centering\itshape
+	Funnel Diagram Placeholder:\\
+	\textbf{Stage 1: Lexical Grid} ($4 \times 7 = 28$ Word Pairs across 9 Models)\\
+	$\downarrow$ \emph{Fix Optimal Vocabulary Pair \& Select Top 5 Models}\\
+	\textbf{Stage 2: Structural \& Persona Grid} ($34$ Templates across System/User Turns)\\
+	$\downarrow$ \emph{Promote Optimal Structural Template per Model}\\
+	\textbf{Stage 3: Reasoning \& Chain-of-Thought} (Unguided, Guided, Native Thinking)}}
+	\caption{The Staged Prompt Engineering Funnel. Each stage systematically isolates one prompt dimension, fixing optimal parameters before introducing downstream complexity.}
+	\label{fig:prompt_funnel}
 \end{figure}
 
-\section{Problem Formulation}
-\guide{Formalise the task. Define inputs and outputs precisely, e.g. given an
-image $x$, the model produces a label $\hat{y}\in\{\text{real},\text{fake}\}$
-(and optionally a rationale). Introduce notation you will reuse. Keep it rigorous
-but readable.}
+\subsection{Stage 1: Lexical Sensitivity and Class Label Wording}
+\label{subsec:stage1_method}
 
-\section{Overall Pipeline Design}
-\guide{Describe the architecture of your evaluation pipeline and the reasoning
-behind it: the Task $\times$ Models $\times$ Datasets $\times$ Prompts matrix,
-why you isolate one model per process (VRAM management), how results are made
-resumable, and how the design supports adding new models/datasets/prompts.
-Explain design principles (extensibility, reproducibility) rather than code.}
+The most fundamental prompt decision is the vocabulary chosen to designate the two classes. Language models possess rich pre-trained semantic priors, and subtle lexical shifts (e.g., asking whether a face is ``real'' vs.\ ``authentic'', or ``deepfake'' vs.\ ``faceswapped'') can trigger vastly different recognition modes.
 
-\section{Prompting Strategies}
-\guide{This is central to RQ2. Describe the prompt variants you designed and the
-hypothesis behind each (e.g. direct verdict vs chain-of-thought; neutral vs
-persona; with/without a definition of ``face swap''; structured JSON output).
-Show a representative prompt -- a listing is ideal:}
-\begin{lstlisting}[basicstyle=\ttfamily\small, breaklines=true, frame=single]
-You are an expert image forensics analyst. Look at the image and decide
-whether the face has been digitally swapped or manipulated.
-Answer with exactly one word: "real" or "fake".
-\end{lstlisting}
-\guide{Explain how prompts map to expected outputs and how you keep them
-comparable across models.}
+Stage 1 evaluates a complete $4 \times 7$ factorial grid ($28$ prompt variants):
+\begin{itemize}
+    \item \textbf{4 Real Candidate Words}: \{\emph{authentic}, \emph{bona fide}, \emph{original}, \emph{real}\}
+    \item \textbf{7 Fake Candidate Words}: \{\emph{fake}, \emph{deepfake}, \emph{generated}, \emph{faceswapped}, \emph{manipulated}, \emph{synthetic}, \emph{modified}\}
+\end{itemize}
 
-\section{Response Parsing and Verdict Extraction}
-\guide{MLLMs return free text, so explain how you turn that into a clean label:
-the parser(s), how you handle malformed/ambiguous outputs, and what counts as a
-parse failure vs a wrong answer. This matters because it directly affects the
-metrics in \Cref{chap:results}.}
+All variants are embedded in a minimal, single-turn direct-query template:
+\begin{center}
+\textit{``Is the face in this image \texttt{\{real\_word\}} or \texttt{\{fake\_word\}}? Answer with exactly one phrase: '\texttt{\{real\_word\}}' or '\texttt{\{fake\_word\}}'.''}
+\end{center}
 
-\section{Evaluation Protocol}
-\guide{Describe -- at the conceptual level -- how you measure success: which
-metrics (defined in \Cref{chap:background}), how you aggregate across datasets and
-generators, how you treat errors and parse failures, and any statistical care
-(e.g. fixed seeds, deterministic decoding with temperature 0). State what would
-count as a positive answer to each research question.}
+\paragraph{Joint Selection Rationale.}
+Empirical analysis revealed that optimal fake words are \emph{non-separable} from the paired real word (e.g., ``faceswapped'' performs best when paired with ``authentic'', whereas ``modified'' excels when paired with ``bona fide''). Consequently, we select the optimal pair $\mathcal{V}^* = (w_{\text{real}}^*, w_{\text{fake}}^*)$ jointly for each model by maximizing MCC across the screening benchmark. The resulting model-specific lexical pairs are frozen for all subsequent stages (\Cref{tab:stage2words}). Furthermore, the top five performing models based on Stage 1 MCC are promoted to Stage 2.
+
+\begin{table}[t]
+	\centering
+	\caption{Optimal Stage 1 lexical pairs carried forward per model into downstream stages.}
+	\label{tab:stage2words}
+	\begin{tabular}{lll}
+		\toprule
+		\textbf{Model Alias} & \textbf{Selected Real Word ($w_{\text{real}}^*$)} & \textbf{Selected Fake Word ($w_{\text{fake}}^*$)} \\
+		\midrule
+		Qwen3.6-35B-A3B      & authentic & faceswapped \\
+		Qwen3.6-27B          & bona fide & faceswapped \\
+		gemma-4-31B-it       & bona fide & generated \\
+		Kimi-VL-A3B-Instruct & original  & synthetic \\
+		Llama-4-Scout-17B    & authentic & fake \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsection{Stage 2: Structural Decomposition and Persona Role-Playing}
+\label{subsec:stage2_method}
+
+With the lexical vocabulary held constant per model, Stage 2 investigates the impact of contextual framing, instruction placement, and persona conditioning. We sweep each model across \num{34} structural permutations categorized into two groups:
+
+\paragraph{1. Base Structural Templates (Turn Placement).}
+We evaluate whether providing explanatory background improves visual alignment, comparing two informational modalities across conversational turns:
+\begin{itemize}
+    \item \textbf{Definition of Face-Swapping}: Explaining the mechanics of identity blending and digital replacement.
+    \item \textbf{Task Description}: Explaining the objective of the detection task without defining the manipulation semantics.
+    \item \textbf{Placement Variable}: Placing the explanation in the \textbf{System Turn} vs.\ the \textbf{User Turn}.
+\end{itemize}
+
+\paragraph{2. Persona Role-Playing Templates.}
+To test whether assigning domain-specific expertise sharpens visual inspection, we prepend one of six expert personas in the system message:
+\begin{enumerate}
+    \item \emph{Deepfake Specialist}
+    \item \emph{Forensic Video Analyst}
+    \item \emph{Visual Effects (VFX) Artist}
+    \item \emph{Biometric Security Analyst}
+    \item \emph{Computer Vision Researcher}
+    \item \emph{Content Integrity Moderator}
+\end{enumerate}
+Crossing these personas with base structural descriptions yields the 34 candidate architectures. The highest-performing structural prompt per model is identified and promoted to full evaluation and Stage 3.
+
+\subsection{Stage 3: Reasoning and Chain-of-Thought (CoT)}
+\label{subsec:stage3_method}
+
+Stages 1 and 2 enforce immediate direct answers. Stage 3 investigates whether eliciting explicit visual rationales before issuing a verdict aids or degrades forensic discrimination. We evaluate four reasoning paradigms:
+\begin{enumerate}
+    \item \textbf{Unguided Chain-of-Thought (Zero-Shot CoT)}: The model is instructed to \emph{``First briefly explain the visual reasoning behind your decision, then conclude with exactly one phrase: '\texttt{\{real\_word\}}' or '\texttt{\{fake\_word\}}''}.
+    \item \textbf{Guided Forensic CoT}: The prompt explicitly instructs the model to inspect specific forensic artifacts known to occur in face-swaps (e.g., skin texture discontinuity between face and neck, lighting mismatch, and blending boundaries around occluding hands/objects).
+    \item \textbf{Post-Hoc Rationalization (Verdict-First)}: The model outputs the final verdict first, followed by an explanatory rationale (testing whether reasoning serves as a computational bridge or merely as an ungrounded justification).
+    \item \textbf{Native Model Thinking}: For models with dedicated internal reasoning tokens, native thinking mode is activated and evaluated over a representative set of frames.
+\end{enumerate}
+
+\paragraph{Positional Response Extraction.}
+In reasoning-eliciting prompts, both candidate words may appear naturally during intermediate visual discussion (e.g., \textit{``The skin shows no obvious fake artifacts, so the face is authentic''}). To deterministically extract the true decision, the response parser uses positional scanning: for Chain-of-Thought prompts where the verdict concludes the response, it extracts the \emph{last} matching target word; for post-hoc rationalization prompts where the decision is stated first, it extracts the \emph{first} matching target word.
+
+% -------------------------------------------------------------
+\section{In-Context Learning (Few-Shot) Protocol}
+\label{sec:few_shot_method}
+
+While zero-shot prompting measures an MLLM's baseline visual representations, \emph{In-Context Learning} (ICL) evaluates whether the model can dynamically adapt its decision boundaries when provided with labelled visual exemplars at inference time.
+
+\subsection{Demonstration Pool Construction}
+
+To prevent data contamination, demonstration images are drawn exclusively from the official training partitions of each dataset. We construct four frozen exemplar pools, each containing 10 authentic ($\text{real}$) and 10 manipulated ($\text{fake}$) frames:
+\begin{enumerate}
+    \item \texttt{FOWS\_occ}: Exemplars from FOWS under physical hand/object occlusion;
+    \item \texttt{FOWS\_noocc}: Exemplars from FOWS in unobstructed conditions;
+    \item \texttt{GOTCHA\_occ}: Exemplars from GOTCHA under physical occlusion;
+    \item \texttt{GOTCHA\_noocc}: Exemplars from GOTCHA in unobstructed conditions.
+\end{enumerate}
+
+\subsection{Factorial ICL Experimental Design}
+
+We systematically evaluate how demonstration properties govern forensic sensitivity across four experimental dimensions:
+
+\paragraph{1. Demonstration Shot Count ($n$).}
+We vary the number of in-context visual demonstrations across $n \in \{1, 2, 4, 6, 10\}$. For each shot count, demonstrations are sampled deterministically from the corresponding frozen pool to eliminate sampling variance.
+
+\paragraph{2. Label Composition and Ordering.}
+To disentangle whether performance gains stem from genuine visual pattern recognition versus superficial label-repetition biases, we evaluate four composition strategies:
+\begin{itemize}
+    \item \textbf{All-Real} ($R^n$): Every demonstration image is an authentic face;
+    \item \textbf{All-Fake} ($F^n$): Every demonstration image is a face-swapped face;
+    \item \textbf{Interleaved Real-First} ($R, F, R, F, \dots$): Alternating pairs starting with real;
+    \item \textbf{Interleaved Fake-First} ($F, R, F, R, \dots$): Alternating pairs starting with fake.
+\end{itemize}
+
+\paragraph{3. Recency and Label Bias Analysis.}
+In alternating configurations ($R, F, \dots$), the final demonstration immediately preceding the query image alternates between classes. By pairing odd and even shot counts ($n=1$ vs.\ $n=2$, etc.) with alternating orders, we explicitly measure whether MLLMs suffer from \emph{recency bias} (a tendency to predict whatever class was demonstrated last).
+
+\paragraph{4. Cross-Distribution and Occlusion Generalization.}
+We cross demonstration pools with test datasets (e.g., conditioning with FOWS occluded exemplars to classify GOTCHA test queries). This isolates whether in-context visual demonstrations transfer general forensic features or overfit to generator-specific and environment-specific artifacts.
+
+\paragraph{Paired Differential Analysis.}
+To measure the true marginal contribution of in-context visual demonstrations, each few-shot inference is paired with the exact zero-shot Stage 2 baseline for the identical image $x_i$:
+\begin{equation}
+    \Delta \text{MCC}_i = \text{Score}_{\text{FewShot}}(x_i) - \text{Score}_{\text{ZeroShot}}(x_i)
+\end{equation}
+Performing this row-level join ensures that comparisons reflect demonstration effects rather than sample composition noise.
+
+% -------------------------------------------------------------
+\section{Evaluation Protocol and Performance Metrics}
+\label{sec:eval_protocol}
+
+\subsection{Prediction Scoring and Parse Failure Handling}
+
+Before computing quantitative classification metrics, the model's parsed predictions are mapped into an evaluation vector. While raw logs retain parse failures ($\bot$) alongside diagnostic error reasons, our evaluation protocol scores every parse failure as an \textbf{incorrect classification}:
+\begin{equation}
+    y_{\text{eval}}(x_i) = 
+    \begin{cases}
+        \hat{y}_i, & \text{if } \hat{y}_i \in \{\text{real}, \text{fake}\} \\
+        \neg y_i, & \text{if } \hat{y}_i = \bot
+    \end{cases}
+\end{equation}
+where $\neg y_i$ represents the incorrect label opposite to ground truth $y_i$. This design choice penalizes fragile prompts and model refusals without introducing directional majority-class bias. In addition, the overall parse failure rate:
+\begin{equation}
+    \mathcal{E}_{\text{parse}} = \frac{1}{N}\sum_{i=1}^N \mathbb{I}(\hat{y}_i = \bot)
+\end{equation}
+is reported across all models and prompts to quantify instruction-following robustness.
+
+\subsection{Primary Optimization Metric: Matthews Correlation Coefficient}
+
+Due to the pronounced class imbalance in the full FOWS benchmark ($1:4$ real-to-fake ratio) and the potential for severe majority-class prediction collapse in large language models, standard Accuracy is unsuitable as an optimization criterion. 
+
+We adopt the \textbf{Matthews Correlation Coefficient (MCC)} as the primary criterion for prompt selection and ranking across all funnel stages:
+\begin{equation}
+    \text{MCC} = \frac{TP \times TN - FP \times FN}{\sqrt{(TP + FP)(TP + FN)(TN + FP)(TN + FN)}}
+\end{equation}
+where $TP$, $TN$, $FP$, and $FN$ represent True Positives, True Negatives, False Positives, and False Negatives, respectively, computed from $(y_i, y_{\text{eval}}(x_i))$.
+
+MCC values range from $-1.0$ (total disagreement) through $0.0$ (chance-level prediction) to $+1.0$ (perfect classification). MCC is rigorously robust to class skew because it produces a high score only if the model achieves high accuracy on \emph{both} authentic and manipulated classes simultaneously, penalizing trivial constant-class majority guessing.
+
+\subsection{Comprehensive Reporting Metrics}
+
+For reporting final model performance on the complete benchmark datasets, we report a multi-faceted metric suite alongside MCC:
+\begin{itemize}
+    \item \textbf{Balanced Accuracy (BACC)}: The unweighted mean of recall on the real and fake classes:
+    \begin{equation}
+        \text{BACC} = \frac{1}{2} \left( \frac{TP}{TP + FN} + \frac{TN}{TN + FP} \right)
+    \end{equation}
+    \item \textbf{Macro F1 Score}: Harmonic mean of precision and recall computed per class and unweighted-averaged.
+    \item \textbf{Generator-Specific Recall}: The detection rate evaluated individually per face-swap generator (SimSwap, GHOST, FaceDancer, DeepFaceLab, FSGAN), revealing algorithm-specific blind spots.
+    \item \textbf{Parse Failure Rate ($\mathcal{E}_{\text{parse}}$)}: The percentage of queries that failed to produce a valid binary verdict.
+\end{itemize}
+
+\subsection{Hardware, Software, and Reproducibility}
+
+All experiments were conducted on a single compute node equipped with an \textbf{NVIDIA A100 Tensor Core GPU (80\,GB VRAM)}, running Ubuntu Linux, CUDA 13.0, PyTorch, and \textbf{vLLM (v0.20.2)}. Software environments and all transitive Python dependencies are managed and locked via \texttt{uv} under Python~3.12. All prompt definitions, TOML study configurations, and dataset splits are maintained under version control to ensure bitwise reproducibility of all reported findings.
+
+
+
+
