@@ -181,6 +181,16 @@ All experiments reported in this work were run on a single machine equipped with
 
 A single accelerator fixes two constraints that the later sections build on. First, every evaluated model must fit within the \num{80}\,GB memory of one card, with no tensor or pipeline parallelism across devices (\Cref{sec:models}). Second, since one model together with its working memory already occupies most of the card, two models cannot be resident at once, so they run one after another, each loaded and evicted before the next (\Cref{sec:pipeline}).
 
+% -------------------------------------------------------------
+\section{Inference Engine Selection}
+\label{sec:engine}
+
+The benchmark requires a prediction for every frame in the test partitions, more than \num{80000} in total, and this is repeated for each candidate configuration. Processing a workload of this size makes the inference engine a central choice, since it governs how efficiently the GPU is used.
+
+We adopted vLLM~\cite{vllm}, an inference engine built for high-throughput generation. It offers three properties that match our setting. It performs \emph{continuous batching}: instead of waiting for a whole batch of requests to finish before starting the next, it fills each freed slot with a waiting request as soon as the current one completes, so the GPU stays busy rather than idling on requests that have already finished. It supports a wide range of models directly from the Hugging Face ecosystem, together with several quantization formats, which is what makes the model suite of \Cref{sec:models} feasible on a single card. And it provides mature multi-GPU support, useful for portability even though our experiments use one GPU.
+
+vLLM can be used in two ways: as an online server exposing an HTTP endpoint, or as a library called directly from Python for offline batch inference. The online server targets interactive, chatbot-style applications where requests arrive over time. Our workload is the opposite: a fixed, known set of frames processed in bulk with no external clients. We therefore use the offline mode, which removes the HTTP layer and its serialisation overhead, avoids the operational burden of running and monitoring a server, and lets the pipeline of \Cref{sec:pipeline} drive generation as ordinary function calls.
+
 
 
 
