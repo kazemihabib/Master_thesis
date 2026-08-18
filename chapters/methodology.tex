@@ -8,7 +8,7 @@ This chapter presents the methodology and experimental framework designed to ben
 
 The remainder of this chapter is organised as follows:
 \Cref{sec:formulation} defines the formal task formulation and deterministic response-parsing protocol;
-\Cref{sec:datasets} details the benchmark datasets, manipulation generators, and the stratified screening benchmark;
+\Cref{sec:datasets} details the benchmark datasets, manipulation generators, and the balanced development set;
 \Cref{sec:models_infra} presents the evaluated model suite, the inference pipeline, and GPU memory isolation architecture;
 \Cref{sec:staged_prompting} details the staged zero-shot prompt engineering funnel;
 \Cref{sec:few_shot_method} describes the few-shot in-context learning experimental design; and
@@ -111,6 +111,47 @@ In total, FOWS provides \num{42000} frames over the seven subjects, evenly split
 		\bottomrule
 	\end{tabular}
 \end{table}
+
+\subsection{Development Set for Prompt Selection}
+\label{subsec:devset}
+
+The staged prompt search (\Cref{sec:staged_prompting}) and the few-shot configuration search (\Cref{sec:few_shot_method}) each require evaluating a large number of candidate configurations. Running every candidate over the full test partitions, which together exceed \num{80000} frames, is computationally prohibitive. We therefore construct a compact development set for each dataset, use it to select configurations during the search phases.
+
+Each development set is a random subsample of the corresponding test partition, balanced along every axis present in the data. \Cref{tab:devbalance} reports the frame count in each category of every axis.
+
+\begin{table}[t]
+	\centering
+	\caption{Balance of each development set along its axes. A dash marks a generator the dataset does not use. For FOWS, each occluder challenge is split equally across three movement paths (\num{224} frames each).}
+	\label{tab:devbalance}
+	\begin{tabular}{llrr}
+		\toprule
+		\textbf{Axis} & \textbf{Category} & \textbf{GOTCHA} & \textbf{FOWS} \\
+		\midrule
+		Class label          & Real                        & \num{672} & \num{672} \\
+		                     & Fake                        & \num{672} & \num{672} \\
+		\midrule
+		Occlusion condition  & Covered (\texttt{occ})      & \num{672} & \num{672} \\
+		                     & Uncovered (\texttt{no-occ}) & \num{672} & \num{672} \\
+		\midrule
+		Generator            & DeepFaceLab & \num{336} & --        \\
+		(fake frames)        & FSGAN       & \num{336} & --        \\
+		                     & SimSwap     & --        & \num{168} \\
+		                     & GHOST       & --        & \num{168} \\
+		                     & FaceDancer  & --        & \num{168} \\
+		                     & DLC         & --        & \num{168} \\
+		\midrule
+		Occluder challenge   & Hand occlusion   & \num{672} & \num{672} \\
+		                     & Object occlusion & \num{672} & \num{672} \\
+		\midrule
+		Subject              & Number of test subjects & 14       & 2         \\
+		                     & Frames per subject      & \num{96} & \num{672} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+Both development sets contain \num{1344} frames (\num{672} real, \num{672} fake). The FOWS set covers both test subjects; the GOTCHA set covers 14 of the 17 test subjects, the remaining three lacking enough frames in some axis to fill the balanced quota.
+
+\guide{TODO: Justify why the development set is balanced along every axis instead of preserving the natural test-partition prevalence }
 
 
 
