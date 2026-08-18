@@ -1,46 +1,6 @@
 % =============================================================
-% CHAPTER 3 — RELATED WORK / STATE OF THE ART
-% Purpose: show you know the field, organise prior work into themes, and -- most
-% importantly -- identify the GAP your thesis fills. This is not a list of
-% summaries; it is an argument that leads to "...and that is why this thesis is
-% needed."
-% Tip: group by theme or approach, NOT one paragraph per paper. Compare and
-% contrast. Every subsection should end with a sentence about limitations/gaps.
+% RELATED WORK
+% Content intentionally removed pending rewrite.
 % =============================================================
 \chapter{Related Work}
 \label{chap:relatedwork}
-
-\guide{Open with one paragraph describing how you organised the literature (the
-themes below) and what question you are using it to answer: ``what has been tried
-for face-swap detection, and where do MLLMs fit?''}
-
-\section{Classical and Deep-Learning Face-Swap Detection}
-\guide{Review the main line of dedicated detectors: CNN-based classifiers,
-frequency/artefact-based methods, and benchmarks (e.g. FaceForensics++,
-Celeb-DF). Characterise their strengths (high in-domain accuracy) and the
-recurring weakness you care about: poor generalisation to unseen manipulation
-methods. This sets up why a more general detector is attractive.}
-
-\section{Generalisation and Cross-Dataset Detection}
-\guide{Discuss work specifically about the generalisation problem -- detectors
-that fail on manipulation types or datasets they were not trained on. This is the
-pain point that motivates zero-shot MLLM use.}
-
-\section{(M)LLMs for Vision Understanding and Forensics}
-\guide{Review the emerging work that uses vision-language models / MLLMs for
-image understanding, reasoning, and especially for detecting manipulated or
-AI-generated images. Be precise about what each did and how your study differs
-(e.g. different datasets, broader model coverage, systematic prompt study,
-reproducible pipeline).}
-
-\section{Datasets and Benchmarks}
-\guide{Explain that unlike previous work using fine-tuning or dedicated
-detectors, your work evaluates off-the-shelf MLLMs purely through prompting --
-no weight updates. Position your study as an empirical evaluation of what MLLMs
-can and cannot do as zero-shot/few-shot detectors. (The actual evaluation
-methodology is in \Cref{chap:methodology}; keep this section about related literature).}
-
-\section{Summary and Research Gap}
-\guide{Close the chapter by stating the gap in one tight paragraph: what nobody
-has adequately done yet, and how your research questions (\Cref{chap:introduction})
-target exactly that gap. This paragraph is the bridge into your methodology.}

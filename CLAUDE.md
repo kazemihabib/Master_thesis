@@ -19,7 +19,7 @@ TeX Live 2025 lives at `/usr/local/texlive/2025/bin/universal-darwin`, which is 
 ## Layout
 
 - `main.tex` — root document (`\documentclass[a4paper,oneside,12pt]{report}`; single-side for digital submission — a commented `twoside` line is for printing). Holds all preamble, title-page metadata (`\title`, `\candidate`, `\supervisor`, `\academicyear`, …), and `\input`s each chapter in order.
-- `chapters/` — one `.tex` per part, `\input` from `main.tex` in this order: `abstract`, then `introduction`, `background`, `related_work`, `methodology`, `experimental_setup`, `results`, `conclusion`, `appendix`, `acknowledgements`. (`sommario` — Italian abstract — exists as an optional, currently-commented block.)
+- `chapters/` — one `.tex` per part, `\input` from `main.tex` in this order: `abstract`, `introduction`, `background`, `related_work`, `methodology`, `results`, `conclusion`, `appendix`, `acknowledgements`. (`experimental_setup.tex` was merged into `methodology.tex` to unify the framework in Chapter 4).
 - `ai_bo_thesis.sty` — the department style (adapted from the Stanford thesis style). Defines `\frontispiece`, `\toc`, `\figstoc`, `\tablestoc`, `\begintext`, `\appendix`, `\acknowledgements`, and the title-page macros. Treat as vendored template — edit chapters, not this.
 - `biblio.bib` — Biber/biblatex bibliography. Style: `[backend=biber, style=trad-plain, sorting=nty, giveninits=true]`.
 
@@ -30,3 +30,13 @@ TeX Live 2025 lives at `/usr/local/texlive/2025/bin/universal-darwin`, which is 
 - **`\guide{...}`**: a custom macro (defined in `main.tex`) that renders *italic bracketed writing advice* about what to put in a section. It is scaffolding — replace each `\guide{...}` with real prose and delete the call. To hide all guidance for a near-final draft, redefine it to a no-op: `\renewcommand{\guide}[1]{}`.
 - **Tables/figures/math**: `booktabs` for rules, `siunitx` (`\num`, `\SI`) for aligned numbers, `subcaption` for side-by-side figures, `listings` for prompt/code snippets. `\figstoc`/`\tablestoc` in `main.tex` are enabled — keep them only while figures/tables exist.
 - `hyperref` is set `hidelinks` for a clean printed look.
+
+## Style and Scientific Rigor Guidelines
+
+- **No AI Stylistic Signatures**:
+  - Do NOT use em-dashes (`---` or `—`) or hyphen-dashes (`-`) for parenthetical clauses. Use standard commas, parentheses, or separate sentences instead.
+  - Avoid generic AI transitions and fluff phrases (e.g., "Furthermore", "Moreover", "It is worth noting", "In conclusion", "To address this challenge", "paves the way", "delve into"). Write concise, natural, human academic prose.
+  - Avoid overly complex, verbose formulations when simple, precise terms exist.
+- **Data and Numbers Verification**:
+  - Never guess or approximate frame counts, dataset splits, or metric values.
+  - Always verify exact dataset numerosity and split counts using the sibling tool `python ../faceswap_detection/scripts/result_split_table.py <result.jsonl>` and the project experiment logs.

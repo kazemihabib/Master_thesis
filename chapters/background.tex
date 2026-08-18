@@ -1,56 +1,6 @@
 % =============================================================
-% CHAPTER 2 — BACKGROUND / FOUNDATIONS
-% Purpose: give the reader exactly the concepts they need to understand the rest
-% of the thesis -- no more, no less. This is textbook-style explanation of
-% EXISTING ideas (with citations), not your own contribution.
-% Tip: only include a concept here if you actually rely on it later. If you find
-% you never use something, cut it.
-% Note: Background and Related Work (Chapter 3) are sometimes merged into one
-% chapter. Keep them separate if each is substantial.
+% BACKGROUND
+% Content intentionally removed pending rewrite.
 % =============================================================
 \chapter{Background}
 \label{chap:background}
-
-\guide{One or two sentences saying what this chapter covers and why each concept
-is needed for the thesis.}
-
-\section{Face Swapping and Image Manipulation}
-\guide{Explain what face swapping / face manipulation is and the main families of
-techniques (e.g. graphics-based swaps, GAN-based, diffusion-based, reenactment).
-Keep it conceptual: the reader needs to understand what kind of artifacts a
-detector might look for. Define ``deepfake'' precisely and relate it to your
-narrower term ``face swap''.}
-
-\section{Multimodal Large Language Models}
-\guide{Introduce MLLMs (a.k.a. vision-language models): how they combine a vision
-encoder with an LLM, what ``instruction-tuned'' and ``chat'' models are, and what
-``zero-shot'' means. Explain the input format (image + text prompt -> text
-answer) since your whole method depends on it. Mention the specific model
-families you will evaluate at a high level (defer the exact list to
-\Cref{chap:methodology}).}
-
-\guide{Give a high-level overview of the inference pipeline (offline batched
-serving with vLLM, continuous batching, memory management) so the reader
-understands why certain choices in \Cref{chap:methodology} were made. Keep it short -- the
-exact configuration lives in \Cref{chap:methodology}.}
-
-\subsection{Prompting and In-Context Behaviour}
-\guide{Explain prompting concepts you rely on: zero-shot vs few-shot,
-system/user roles, chain-of-thought vs direct answers, and structured/JSON
-output. This motivates why prompt design is a variable worth studying (RQ2).}
-
-\section{Inference at Scale: Offline Batched Serving}
-\guide{Briefly explain the serving machinery you used (e.g. vLLM offline
-batching) at a conceptual level: why batching matters, what VRAM constraints
-imply, and why models are run one at a time. You do not need deep systems detail
-here -- just enough that the experimental setup makes sense.}
-
-\section{Evaluation Metrics for Binary Detection}
-\guide{Define the metrics you will report and WHY each is appropriate. For a
-real/fake detection task: accuracy, precision/recall, F1, balanced accuracy,
-and possibly ROC-AUC. Explain class imbalance and why plain accuracy can be
-misleading -- this justifies your metric choices in \Cref{chap:results}. Give the
-formulas; this is a natural place to use math, e.g.}
-\[
-	\text{Accuracy} = \frac{TP + TN}{TP + TN + FP + FN}.
-\]
