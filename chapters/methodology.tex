@@ -9,10 +9,13 @@ This chapter presents the methodology and experimental framework designed to ben
 The remainder of this chapter is organised as follows:
 \Cref{sec:formulation} defines the formal task formulation and deterministic response-parsing protocol;
 \Cref{sec:datasets} details the benchmark datasets, manipulation generators, and the balanced development set;
-\Cref{sec:models_infra} presents the evaluated model suite, the inference pipeline, and GPU memory isolation architecture;
-\Cref{sec:staged_prompting} details the staged zero-shot prompt engineering funnel;
-\Cref{sec:few_shot_method} describes the few-shot in-context learning experimental design; and
-\Cref{sec:eval_protocol} outlines the evaluation protocol, performance metrics, and reproducibility environment.
+\Cref{sec:compute_env} describes the compute environment on which all experiments were run;
+\Cref{sec:engine} motivates the choice of inference engine and batching strategy;
+\Cref{sec:models} presents the evaluated model suite;
+\Cref{sec:metric} defines the evaluation metric and the configuration-selection protocol shared by the search phases;
+\Cref{sec:pipeline} details the experiment pipeline and its GPU memory-isolation architecture;
+\Cref{sec:staged_prompting} details the staged zero-shot prompt engineering funnel; and
+\Cref{sec:few_shot_method} describes the few-shot in-context learning experimental design.
 
 % -------------------------------------------------------------
 \section{Problem Formulation and Response Parsing}
@@ -152,6 +155,31 @@ Each development set is a random subsample of the corresponding test partition, 
 Both development sets contain \num{1344} frames (\num{672} real, \num{672} fake). The FOWS set covers both test subjects; the GOTCHA set covers 14 of the 17 test subjects, the remaining three lacking enough frames in some axis to fill the balanced quota.
 
 \guide{TODO: Justify why the development set is balanced along every axis instead of preserving the natural test-partition prevalence }
+
+% -------------------------------------------------------------
+\section{Compute Environment}
+\label{sec:compute_env}
+
+All experiments reported in this work were run on a single machine equipped with one NVIDIA A100 80\,GB PCIe accelerator. No experiment used more than one GPU. \Cref{tab:hardware} summarises the configuration.
+
+\begin{table}[t]
+	\centering
+	\caption{Compute environment used for all experiments.}
+	\label{tab:hardware}
+	\begin{tabular}{ll}
+		\toprule
+		\textbf{Component} & \textbf{Specification} \\
+		\midrule
+		GPU            & NVIDIA A100 80\,GB PCIe \\
+		GPU driver     & 610.43.02 \\
+		CUDA           & 13.3 \\
+		CPU            & AMD EPYC 7V13, \num{24} vCPUs \\
+		System memory  & \num{216}\,GiB \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+A single accelerator fixes two constraints that the later sections build on. First, every evaluated model must fit within the \num{80}\,GB memory of one card, with no tensor or pipeline parallelism across devices (\Cref{sec:models}). Second, since one model together with its working memory already occupies most of the card, two models cannot be resident at once, so they run one after another, each loaded and evicted before the next (\Cref{sec:pipeline}).
 
 
 
