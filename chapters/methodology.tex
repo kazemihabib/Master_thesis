@@ -228,5 +228,20 @@ At native 16 bit precision a model stores roughly two bytes per parameter for it
 \paragraph{Reasoning models.}
 Some of these models are hybrids that can produce a chain of reasoning before their final answer that we enable or disable according to the task objectives.
 
+% -------------------------------------------------------------
+\section{Evaluation Metric}
+\label{sec:metric}
+
+The primary metric on which models, prompts, and datasets are compared throughout this work is the Matthews Correlation Coefficient (MCC). Reusing the confusion matrix counts over the binary label space of \Cref{sec:formulation}, with \emph{fake} as the positive class and \emph{real} as the negative class, let $\mathrm{TP}$, $\mathrm{TN}$, $\mathrm{FP}$, and $\mathrm{FN}$ denote the true positives, true negatives, false positives, and false negatives. MCC is defined as
+\begin{equation}
+	\text{MCC} = \frac{\mathrm{TP}\cdot\mathrm{TN} - \mathrm{FP}\cdot\mathrm{FN}}{\sqrt{(\mathrm{TP}+\mathrm{FP})(\mathrm{TP}+\mathrm{FN})(\mathrm{TN}+\mathrm{FP})(\mathrm{TN}+\mathrm{FN})}} ,
+	\label{eq:mcc}
+\end{equation}
+and takes values in $[-1, 1]$: $+1$ for perfect agreement between prediction and ground truth, $0$ for predictions no better than chance, and $-1$ for total disagreement. Whenever any factor in the denominator is zero, which happens when the model assigns every frame to a single class, the coefficient is taken to be $0$.
+
+We take MCC as the primary metric on the grounds established by Chicco and Jurman~\cite{mcc}, who show it to be more informative and truthful than accuracy and the F1 score for binary classification. MCC is the only one of these common scalar summaries that draws on all four cells of the confusion matrix, so it yields a high value only when the classifier predicts both the real and the fake class well, proportionally to the number of real and fake instances in the data. Accuracy and F1, by contrast, can be overoptimistically inflated on class-imbalanced datasets by a classifier that favours the majority class. This distinction is material here because the full test partitions are imbalanced: FOWS pairs each genuine frame with four swaps, a $1{:}4$ real-to-fake ratio (\Cref{tab:datasets}), so a detector that labels every frame \emph{fake} would reach $80\%$ accuracy while learning nothing, yet its MCC is $0$. MCC is furthermore symmetric: it is invariant to swapping which class is designated positive, so the reported score does not depend on the arbitrary choice of treating \emph{fake} rather than \emph{real} as the positive class, unlike the F1 score.
+
+A prediction of the failure symbol $\bot$ (\Cref{sec:formulation}) is scored as an incorrect answer rather than discarded, as in FakeBench~\cite{fakebench}. Before \Cref{eq:mcc} is evaluated we assign it the label opposite to the ground truth, so a $\bot$ counts as a false positive on a real frame and a false negative on a fake one. This keeps every frame in the evaluation, so a model that fails to answer is not implicitly rewarded by having those frames removed from its score.
+
 
 
