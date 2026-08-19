@@ -191,7 +191,42 @@ We adopted vLLM~\cite{vllm}, an inference engine built for high-throughput gener
 
 vLLM can be used in two ways: as an online server exposing an HTTP endpoint, or as a library called directly from Python for offline batch inference. The online server targets interactive, chatbot-style applications where requests arrive over time. Our workload is the opposite: a fixed, known set of frames processed in bulk with no external clients. We therefore use the offline mode, which removes the HTTP layer and its serialisation overhead, avoids the operational burden of running and monitoring a server, and lets the pipeline of \Cref{sec:pipeline} drive generation as ordinary function calls.
 
+% -------------------------------------------------------------
+\section{Model Set}
+\label{sec:models}
 
+This section presents the full set of models we evaluate. We benchmark openly available models rather than proprietary ones served behind an API. The datasets consist of facial images of identifiable subjects, and sending them to an external service would expose that personal data outside our control. Running openly available models on our own hardware keeps every image local and avoids this exposure.
+
+Candidate models were drawn from the Hugging Face ecosystem and admitted to the set under three constraints. Each model must (i) be able to process images and have been tuned to follow instructions, (ii) be supported by the vLLM engine of \Cref{sec:engine}, and (iii) fit within the \num{80}\,GB of a single A100 (\Cref{sec:compute_env}) together with the memory it needs at run time, since no parallelism across GPUs is used. This run-time memory is dominated by the key-value cache (KV cache) that the model accumulates as it generates, and it grows with the context length and the batch size. The resulting set of nine models is listed in \Cref{tab:models}. It deliberately spans a wide range of scales and architectural families, from a compact \num{5.6}\,B dense model to a \num{109}\,B mixture of experts (MoE), a sparse design that activates only a small fraction of its parameters per token.
+
+\begin{table}[t]
+	\centering
+	\caption{The nine evaluated models, ordered by total parameter count. For mixture of experts (MoE) models, the active column reports the parameters used per token. All models run at their native \texttt{bf16} precision except Llama-4-Scout, served in a \texttt{w4a16} checkpoint (4 bit weights, 16 bit activations) so that it fits within \num{80}\,GB.}
+	\label{tab:models}
+	\begin{tabular}{lrrl}
+		\toprule
+		\textbf{Hugging Face repository} & \textbf{Total} & \textbf{Active} & \textbf{Precision} \\
+		\midrule
+		\texttt{microsoft/Phi-4-multimodal-instruct}         & \num{5.6}\,B  & dense        & \texttt{bf16} \\
+		\texttt{zai-org/GLM-4.6V-Flash}                     & \num{10}\,B   & dense        & \texttt{bf16} \\
+		\texttt{nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16}  & \num{12}\,B   & dense        & \texttt{bf16} \\
+		\texttt{moonshotai/Kimi-VL-A3B-Instruct}            & \num{16}\,B   & \num{3}\,B   & \texttt{bf16} \\
+		\texttt{Qwen/Qwen3.6-27B}                           & \num{27}\,B   & dense        & \texttt{bf16} \\
+		\texttt{google/gemma-4-31B-it}                      & \num{30.7}\,B & dense        & \texttt{bf16} \\
+		\texttt{OpenGVLab/InternVL3\_5-30B-A3B-HF}          & \num{30.8}\,B & \num{3}\,B   & \texttt{bf16} \\
+		\texttt{Qwen/Qwen3.6-35B-A3B}                       & \num{35}\,B   & \num{3}\,B   & \texttt{bf16} \\
+		\texttt{RedHatAI/Llama-4-Scout-17B-16E-\dots-w4a16} & \num{109}\,B  & \num{17}\,B  & \texttt{w4a16} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\guide{TODO: add a \texttt{biblio.bib} citation for every model.}
+
+\paragraph{Precision and quantisation.}
+At native 16 bit precision a model stores roughly two bytes per parameter for its weights, and the KV cache introduced above adds further memory on top. Eight of the nine models fit within \num{80}\,GB at their native \texttt{bf16} precision. The exception is Llama-4-Scout, whose \num{109}\,B parameters would need well over \num{200}\,GB in 16 bit form. We therefore use a community \texttt{w4a16} checkpoint that stores the weights in 4 bits while keeping activations at 16 bits, cutting the weight footprint by roughly four times. For the largest models the context length was capped to the maximum vLLM reports as fitting once the weights are loaded: \num{44480} tokens for gemma-4-31B-it and \num{64816} for Llama-4-Scout.
+
+\paragraph{Reasoning models.}
+Some of these models are hybrids that can produce a chain of reasoning before their final answer that we enable or disable according to the task objectives.
 
 
 
