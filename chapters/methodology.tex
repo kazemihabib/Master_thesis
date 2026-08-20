@@ -392,3 +392,26 @@ A naive execution loop over prompts or datasets would repeatedly reload multi gi
 
 \paragraph{Subprocess Isolation per Model.}
 To guarantee complete VRAM reclamation between successive models, the orchestrator executes each model group inside a fresh, isolated worker subprocess using the Python \texttt{multiprocessing} library. The worker process initializes the model, runs all assigned evaluation units, and writes predictions directly to disk. Once the group finishes, the worker process terminates completely. The operating system and GPU driver automatically release all allocated GPU memory, guaranteeing a clean memory state before the orchestrator launches the worker for the next model.
+
+\subsection{Resumability, Fault Tolerance, and Metadata Preservation}
+\label{subsec:resumability_provenance}
+
+Running large scale benchmarks across tens of thousands of frames requires mechanisms to recover gracefully from interruptions, isolate runtime failures, and preserve complete records for downstream analysis.
+
+\paragraph{Resumability.}
+To eliminate the cost of restarting interrupted experiments, model predictions are streamed incrementally to disk as append only JSON Lines (JSONL) files. A dedicated \texttt{StateManager} tracks processed items by their unique image paths. When an experiment resumes after an interruption, the worker queries the state manager and skips already completed images. Furthermore, if all items in an execution unit have already been processed, the orchestrator skips that unit entirely before the model is even loaded into GPU memory.
+
+\paragraph{Fault Tolerance.}
+To prevent runtime anomalies or unexpected input failures from blocking the entire benchmark, the worker tracks consecutive inference errors. If errors occur repeatedly and exceed a predefined threshold of ten consecutive failures, the worker terminates that specific model group while allowing the orchestrator to proceed cleanly with the remaining models in the study.
+
+\paragraph{Metadata Preservation.}
+Every emitted JSONL record preserves the complete per frame metadata alongside the raw model output text and the parsed prediction. Retaining these attributes directly with the predictions enables the fine grained comparative breakdowns presented in \Cref{chap:results}, such as evaluating detection performance across specific generators and occlusion conditions.
+
+\subsection{Sampling and Determinism}
+\label{subsec:sampling_determinism}
+
+To ensure that the benchmark measures the intrinsic capabilities of each model rather than stochastic sampling variance, all experiments are conducted using greedy decoding with sampling temperature set to zero ($\tau = 0.0$). 
+
+While setting temperature to zero instructs the model to select the token with the highest probability at each step, greedy decoding on modern GPUs does not guarantee strict bit level reproducibility across different execution settings. As shown by Yuan et al.~\cite{yuan2025nondeterminism}, the non associative nature of floating point addition in parallel GPU reduction kernels, combined with dynamic request scheduling in continuous batching, introduces slight numerical variations in computed logits. When the probability gap between candidate tokens is narrow, these small rounding differences can occasionally flip token selection. This effect was observed during our single exemplar few-shot experiments ($n = 1$), where identical prompt content yielded minor token level variations under different batch scheduling orders (\Cref{sec:few_shot_method}).
+
+
