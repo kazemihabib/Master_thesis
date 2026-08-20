@@ -379,3 +379,16 @@ Under this design, implementing a new component requires only writing a dedicate
 
     \item \textbf{Inference Providers (\texttt{@register\_provider}):} Implement the communication with the underlying inference engine according to the properties declared in the shared model TOML configuration. Currently, the provider is implemented for local offline \texttt{vllm} execution (\Cref{sec:engine}).
 \end{enumerate}
+
+\subsection{GPU Memory Isolation}
+\label{subsec:vram_isolation}
+
+Evaluating nine large multimodal models (\Cref{sec:models}) on a single 80\,GB accelerator (\Cref{sec:compute_env}) introduces a strict memory management challenge. Large models occupy a substantial fraction of the available VRAM for their parameter weights, with remaining memory allocated to continuous key-value cache pools. Crucially, inference engines such as vLLM are designed for persistent serving and expose no internal Python API to completely unload a resident model or free its allocated cache memory. Executing multiple models sequentially within a single persistent process causes residual memory accumulation that quickly leads to out of memory errors.
+
+To overcome this limitation while maintaining high throughput, the pipeline applies two complementary strategies:
+
+\paragraph{Model Centric Execution Grouping.}
+A naive execution loop over prompts or datasets would repeatedly reload multi gigabyte model weights for every prompt variation, creating immense initialization overhead. The study parser instead partitions the expanded execution matrix into model centric groups. All prompts, datasets, and configurations targeting a given model are processed in a single continuous pass, ensuring that model weights are transferred to the accelerator only once per study.
+
+\paragraph{Subprocess Isolation per Model.}
+To guarantee complete VRAM reclamation between successive models, the orchestrator executes each model group inside a fresh, isolated worker subprocess using the Python \texttt{multiprocessing} library. The worker process initializes the model, runs all assigned evaluation units, and writes predictions directly to disk. Once the group finishes, the worker process terminates completely. The operating system and GPU driver automatically release all allocated GPU memory, guaranteeing a clean memory state before the orchestrator launches the worker for the next model.
