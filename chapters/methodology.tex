@@ -420,4 +420,195 @@ To ensure that the benchmark measures the intrinsic capabilities of each model r
 
 While setting temperature to zero instructs the model to select the token with the highest probability at each step, greedy decoding on modern GPUs does not guarantee strict bit level reproducibility across different execution settings. As shown by Yuan et al.~\cite{yuan2025nondeterminism}, the non associative nature of floating point addition in parallel GPU reduction kernels, combined with dynamic request scheduling in continuous batching, introduces slight numerical variations in computed logits. When the probability gap between candidate tokens is narrow, these small rounding differences can occasionally flip token selection. This effect was observed during our single exemplar few-shot experiments ($n = 1$), where identical prompt content yielded minor token level variations under different batch scheduling orders (\Cref{sec:few_shot_method}).
 
+% -------------------------------------------------------------
+\section{Staged Zero-Shot Prompt Engineering}
+\label{sec:staged_prompting}
+
+Evaluating the intrinsic forensic capabilities of Multimodal Large Language Models requires carefully designed prompts. However, as formulated in \Cref{sec:formulation}, a prompt is not a monolithic string but a structured combination of distinct components: the target label vocabulary $\mathcal{V}$, contextual task definitions $\mathcal{S}$, domain personas $\mathcal{R}$, and reasoning modes $\mathcal{C}$. In a zero-shot setting where no labeled exemplars are provided ($\mathcal{D} = \emptyset$), the prompt space is defined by the tuple:
+\begin{equation}
+    p = \langle \mathcal{V}, \mathcal{S}, \mathcal{R}, \mathcal{C}, \emptyset \rangle
+\end{equation}
+
+Jointly exploring all possible combinations of nine candidate models, 28 vocabulary pairs, multiple structural templates, six expert personas, and diverse reasoning modes across the full test partitions (exceeding \num{80000} frames) would require millions of inference queries. On a single accelerator (\Cref{sec:compute_env}), an exhaustive combinatorial grid search across all dimensions simultaneously is computationally intractable.
+
+To make this exploration tractable, we design a staged prompt engineering funnel that isolates and optimizes one orthogonal dimension of the prompt tuple at a time on the balanced development set (\Cref{sec:datasets}):
+\begin{enumerate}
+    \item \textbf{Stage 1 (Vocabulary Search $\mathcal{V}$):} Evaluates a grid of 28 candidate word pairs across all nine models using a minimal prompt, identifying the optimal target vocabulary for each model and down-selecting the model suite to the five top performers (\Cref{subsec:stage1_vocabulary}).
+    \item \textbf{Stage 2 (Structural Context $\mathcal{S}$ and Persona $\mathcal{R}$):} Explores nine structural templates placing definitions, task descriptions, and domain personas in system versus user message roles, evaluating each of the five selected models exclusively with its Stage~1 winning vocabulary (\Cref{subsec:stage2_structure}).
+    \item \textbf{Stage 3 (Reasoning Mode $\mathcal{C}$):} Evaluates unguided Chain-of-Thought, a guided forensic cue checklist, and answer-first reasoning on each model's winning Stage~2 prompt template (\Cref{subsec:stage3_reasoning}).
+\end{enumerate}
+
+\subsection{Prompt Architecture and Funnel Rationale}
+\label{subsec:prompt_funnel_rationale}
+
+\paragraph{Declarative Prompt Template Schema.}
+Within the evaluation pipeline (\Cref{sec:pipeline}), every prompt is defined as a declarative JSON document that decouples conversation structure from image assets and extraction rules. As shown in \Cref{lst:prompt_schema}, a prompt template contains three primary fields:
+\begin{enumerate}
+    \item \texttt{id}: A unique identifier declaring the template format (for example, \texttt{basic\_conversation\_v1} for direct zero-shot queries or \texttt{cot\_conversation\_v1} for reasoning variants).
+    \item \texttt{conversations}: An ordered list of message objects specifying the conversation turn (\texttt{system} or \texttt{user}) and its content blocks. Text blocks provide instructions, while image blocks contain logical placeholders (\texttt{image\_id: "target\_image"}) that the task worker dynamically populates with the queried frame.
+    \item \texttt{response\_format}: Specifies the extraction contract parsed by $\pi(t)$ (\Cref{sec:formulation}). For single-phrase classification, it declares the expected target label words $w_{\text{real}}$ and $w_{\text{fake}}$.
+\end{enumerate}
+
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,breaklines=true,frame=single,caption={Declarative JSON template schema for a minimal zero-shot prompt.},label={lst:prompt_schema}]
+{
+  "id": "basic_conversation_v1",
+  "conversations": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "image",
+          "image_id": "target_image"
+        },
+        {
+          "type": "text",
+          "text": "Is the face in this image authentic or fake? Answer with exactly one phrase: 'authentic' or 'fake'."
+        }
+      ]
+    }
+  ],
+  "response_format": {
+    "type": "single_phrase",
+    "real_word": "authentic",
+    "fake_word": "fake"
+  }
+}
+\end{lstlisting}
+
+\paragraph{Greedy Funnel Optimization and Methodological Trade-offs.}
+The staged search implements a greedy heuristic along the orthogonal components of the prompt parameter space. By optimizing $\mathcal{V}$ first, fixing the winning vocabulary per model, and subsequently exploring $\mathcal{S}$, $\mathcal{R}$, and $\mathcal{C}$, the total number of evaluation runs is reduced by several orders of magnitude.
+
+This greedy decomposition involves a clear methodological trade-off. It assumes that vocabulary preference remains relatively stable across different prompt structures. A specific model could theoretically perform better with a particular persona or definition when paired with an alternative vocabulary pair that was eliminated during Stage~1. However, because a joint grid search across the full Cartesian product is computationally prohibitive, this staged heuristic provides a principled, reproducible framework for exploring prompt variations within feasible compute budgets.
+
+\paragraph{Evaluation on the Balanced Development Set.}
+To prevent computational bottlenecks, all intermediate decisions across Stages~1, 2, and 3 are evaluated on the balanced development sets of FOWS and GOTCHA (\num{1344} frames each, \Cref{subsec:devset}). Candidate configurations are selected using the Matthews Correlation Coefficient (\Cref{sec:metric}) on these development sets. Only the winning configurations identified through this funnel are subsequently evaluated across the full benchmark test partitions.
+
+\subsection{Stage 1: Target Class Vocabulary Search and Model Selection}
+\label{subsec:stage1_vocabulary}
+
+\paragraph{Vocabulary Grid Design.}
+In binary classification with natural language models, the specific words assigned to the positive and negative classes can significantly alter model predictions. As demonstrated by Ismithdeen et al.~\cite{ismithdeen2025promptception}, Multimodal Large Language Models exhibit substantial lexical sensitivity, where subtle shifts in prompt vocabulary produce performance swings of up to \num{15}\% to \num{50}\% across vision benchmarks. Standard labels such as \texttt{"real"} and \texttt{"fake"} are semantically broad and carry priors from general pretraining that may not align well with visual manipulation artifacts. To identify the optimal terminology for face swap detection, Stage 1 systematically evaluates candidate vocabulary words along both class dimensions:
+\begin{itemize}
+    \item \textbf{Real class ($w_{\text{real}}$, 4 candidates):} \texttt{authentic}, \texttt{bona fide}, \texttt{original}, \texttt{real}.
+    \item \textbf{Fake class ($w_{\text{fake}}$, 7 candidates):} \texttt{fake}, \texttt{deepfake}, \texttt{generated}, \texttt{faceswapped}, \texttt{manipulated}, \texttt{synthetic}, \texttt{modified}.
+\end{itemize}
+Taking the Cartesian product yields $4 \times 7 = 28$ candidate vocabulary pairs.
+
+To isolate the effect of word choice from other prompt factors, each pair is embedded into a minimal, zero shot prompt template without personas or explanatory definitions:
+\begin{quote}
+    \emph{Is the face in this image $w_{\text{real}}$ or $w_{\text{fake}}$? Answer with exactly one phrase: '$w_{\text{real}}$' or '$w_{\text{fake}}$'.}
+\end{quote}
+
+\paragraph{Output Format Rationale.}
+Rather than requiring models to follow a rigid prefix structure (such as \texttt{"Verdict: fake"}), or structured formats such as JSON or XML, the prompt instructs the model to directly emit the selected class phrase. In empirical studies on prompt formatting, Ismithdeen et al.~\cite{ismithdeen2025promptception} observed that imposing rigid formatting constraints, complex schemas, or non-negotiable answer headers on open weights models caused severe accuracy drops of \num{15}\% to \num{23}\%. The deterministic parser $\pi(t)$ (\Cref{sec:formulation}) directly extracts the target phrase using regular expressions, recording a failure symbol $\bot$ if neither word appears.
+
+\paragraph{Evaluation and Model Selection.}
+All 28 vocabulary pairs were evaluated across the complete suite of nine models (\Cref{sec:models}) on both the FOWS and GOTCHA balanced development sets (\num{1344} frames each), resulting in 504 individual evaluation units and \num{677376} inference requests.
+
+To jointly assess performance across both manipulation benchmarks, we define the overall evaluation score as the arithmetic mean of the MCC scores computed on each development set:
+\begin{equation}
+    \text{MCC}_{\text{overall}} = \frac{\text{MCC}_{\text{FOWS}} + \text{MCC}_{\text{GOTCHA}}}{2}
+    \label{eq:mcc_overall}
+\end{equation}
+
+Because running subsequent prompt engineering stages across all nine models would multiply the experimental volume beyond computational constraints, Stage 1 serves as a selection filter. For each model, candidate vocabulary pairs were ranked by $\text{MCC}_{\text{overall}}$, identifying the model's optimal word pair. Models were then ranked according to their peak overall MCC score. The top five models were chosen for subsequent exploration:
+\begin{enumerate}
+    \item \texttt{Qwen/Qwen3.6-35B-A3B}
+    \item \texttt{Qwen/Qwen3.6-27B}
+    \item \texttt{google/gemma-4-31B-it}
+    \item \texttt{moonshotai/Kimi-VL-A3B-Instruct}
+    \item \texttt{RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16}
+\end{enumerate}
+The remaining four models (\texttt{GLM-4.6V-Flash}, \texttt{Nemotron-Nano-12B}, \texttt{InternVL3.5-30B}, and \texttt{Phi-4-multimodal}) exhibited lower peak performance and were excluded from subsequent stages.
+
+Evaluating the candidate pairs on the development sets yields the winning vocabulary pair for each of the five selected models, summarized in \Cref{tab:stage1_winners}. These winning pairs define the fixed target vocabulary $\mathcal{V}$ for each model in Stage 2. A detailed comparative analysis of lexical sensitivity across the full 28 pair grid is presented in \Cref{chap:results}.
+
+\begin{table}[t]
+	\centering
+	\caption{Stage 1 vocabulary search and model selection. The top five models were selected based on their peak MCC across 28 candidate word pairs on the balanced development sets. Each selected model achieved its best score on a distinct vocabulary pair.}
+	\label{tab:stage1_winners}
+	\begin{tabular}{llcc}
+		\toprule
+		\textbf{Selected Model} & \textbf{Model Family} & \textbf{Winning $w_{\text{real}}$} & \textbf{Winning $w_{\text{fake}}$} \\
+		\midrule
+		\texttt{Qwen3.6-35B-A3B}     & Qwen MoE (3B active)  & \texttt{authentic}  & \texttt{faceswapped} \\
+		\texttt{Qwen3.6-27B}         & Qwen Dense (27B)      & \texttt{bona fide}  & \texttt{faceswapped} \\
+		\texttt{gemma-4-31B-it}      & Gemma Dense (30.7B)   & \texttt{bona fide}  & \texttt{generated}   \\
+		\texttt{Kimi-VL-A3B-Instruct}& Kimi MoE (3B active)  & \texttt{original}   & \texttt{synthetic}   \\
+		\texttt{Llama-4-Scout-17B}   & Llama MoE (17B active)& \texttt{authentic}  & \texttt{fake}        \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsection{Stage 2: Structural Context and Persona Engineering}
+\label{subsec:stage2_structure}
+
+\paragraph{Contextual Elements: Definitions and Task Descriptions.}
+While Stage 1 identified the optimal class vocabulary $\mathcal{V}$, Stage 2 evaluates how contextual task framing $\mathcal{S}$ and domain expert personas $\mathcal{R}$ influence classification performance. We define two distinct categories of contextual instructions:
+\begin{enumerate}
+    \item \textbf{Semantic Definitions ($\mathcal{S}_{\text{def}}$):} Provide explicit semantic boundaries explaining the physical distinction between real and fake faces in face swapping:
+    \begin{quote}
+        \emph{An '$w_{\text{real}}$' face belongs to the person originally photographed. A '$w_{\text{fake}}$' face belongs to a different person and has been placed into [the/this] image using faceswapping techniques.}
+    \end{quote}
+    \item \textbf{Task Descriptions ($\mathcal{S}_{\text{task}}$):} State the forensic objective as an imperative instruction without defining the individual vocabulary words:
+    \begin{quote}
+        \emph{Your task is to determine whether the face in [a given/this] image belongs to the person originally photographed, or belongs to a different person and has been placed into [the/this] image using faceswapping techniques.}
+    \end{quote}
+\end{enumerate}
+
+\paragraph{Structural Placement Templates.}
+To evaluate whether contextual directives are more effective when placed globally in the system message or provided locally alongside the query image in the user message, we construct nine structural templates, summarized in \Cref{tab:stage2_structures}:
+\begin{itemize}
+    \item \texttt{1\_def\_sys}: Semantic definitions placed in the system message, with the query image and question in the user message.
+    \item \texttt{2\_def\_usr}: Semantic definitions placed directly in the user message alongside the query, with no system message.
+    \item \texttt{3\_task\_sys}: Task descriptions placed in the system message, with the query image and question in the user message.
+    \item \texttt{4\_task\_usr}: Task descriptions placed directly in the user message alongside the query, with no system message.
+    \item \texttt{5\_persona\_only}: An expert persona assigned in the system message, without supplementary definitions or task framing.
+    \item \texttt{6\_persona\_sys\_def\_sys}: An expert persona combined with semantic definitions in the system message.
+    \item \texttt{7\_persona\_sys\_def\_usr}: An expert persona in the system message, with semantic definitions placed in the user message.
+    \item \texttt{8\_persona\_sys\_task\_sys}: An expert persona combined with task descriptions in the system message.
+    \item \texttt{9\_persona\_sys\_task\_usr}: An expert persona in the system message, with task descriptions placed in the user message.
+\end{itemize}
+
+\begin{table}[t]
+	\centering
+	\caption{Taxonomy of the nine structural prompt templates evaluated in Stage 2, specifying the message placement of semantic definitions, task descriptions, and domain personas across conversation roles.}
+	\label{tab:stage2_structures}
+	\begin{tabular}{lll}
+		\toprule
+		\textbf{Structure ID} & \textbf{System Message Content} & \textbf{User Message Content} \\
+		\midrule
+		\texttt{1\_def\_sys}            & Definition $\mathcal{S}_{\text{def}}$         & Query \\
+		\texttt{2\_def\_usr}            & None                                          & Definition $\mathcal{S}_{\text{def}}$ + Query \\
+		\texttt{3\_task\_sys}           & Task $\mathcal{S}_{\text{task}}$              & Query \\
+		\texttt{4\_task\_usr}           & None                                          & Task $\mathcal{S}_{\text{task}}$ + Query \\
+		\texttt{5\_persona\_only}       & Persona $\mathcal{R}$                         & Query \\
+		\texttt{6\_persona\_sys\_def\_sys} & Persona $\mathcal{R}$ + Definition $\mathcal{S}_{\text{def}}$ & Query \\
+		\texttt{7\_persona\_sys\_def\_usr} & Persona $\mathcal{R}$                         & Definition $\mathcal{S}_{\text{def}}$ + Query \\
+		\texttt{8\_persona\_sys\_task\_sys}& Persona $\mathcal{R}$ + Task $\mathcal{S}_{\text{task}}$       & Query \\
+		\texttt{9\_persona\_sys\_task\_usr}& Persona $\mathcal{R}$                         & Task $\mathcal{S}_{\text{task}}$ + Query \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\paragraph{Domain Expert Personas.}
+For structural templates that include a persona role (templates $5$ through $9$), we define six domain specific personas $\mathcal{R} = \{P_1, \dots, P_6\}$ covering forensic analysis, media moderation, and technical imaging domains:
+\begin{itemize}
+    \item $P_1$ (\textbf{Deepfake Specialist}): \emph{You are an expert specializing in deepfake detection and facial manipulation analysis.}
+    \item $P_2$ (\textbf{Forensic Examiner}): \emph{You are a forensic image examiner with expertise in detecting digital tampering in photographic evidence.}
+    \item $P_3$ (\textbf{Visual Effects Artist}): \emph{You are a professional visual effects artist experienced in creating realistic face composites for film production.}
+    \item $P_4$ (\textbf{Biometric Analyst}): \emph{You are a biometric verification analyst working in identity fraud prevention.}
+    \item $P_5$ (\textbf{Computer Vision Researcher}): \emph{You are a computer vision researcher specializing in face analysis and generative model artifacts.}
+    \item $P_6$ (\textbf{Content Integrity Analyst}): \emph{You are a content integrity analyst responsible for detecting manipulated media on a social platform.}
+\end{itemize}
+Across the nine structural templates, templates 1 to 4 yield one prompt each, while templates 5 to 9 are crossed with all six personas ($5 \times 6 = 30$ prompts), resulting in 34 prompt configurations per model.
+
+\paragraph{Experimental Protocol and Model Selection.}
+Stage 2 evaluates each of the five selected models exclusively with its Stage 1 winning vocabulary pair across all 34 structural prompt variations on the balanced development sets of FOWS and GOTCHA.
+
+For each model, the 34 prompt variations were ranked according to $\text{MCC}_{\text{overall}}$ (\Cref{eq:mcc_overall}) to determine its optimal structural configuration. Based on their peak performance in Stage 2, the model suite was further narrowed to the top three models: \texttt{Qwen/Qwen3.6-35B-A3B}, \texttt{google/gemma-4-31B-it}, and \texttt{Qwen/Qwen3.6-27B}. These three models were evaluated with their winning prompt structures on the full benchmark test partitions and carried forward to the reasoning evaluations in Stage 3. Detailed comparative breakdowns and empirical comparisons across prompt structures are reported in \Cref{chap:results}.
+
+
+
+
 
