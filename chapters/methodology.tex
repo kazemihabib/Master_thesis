@@ -160,26 +160,32 @@ Both development sets contain \num{1344} frames (\num{672} real, \num{672} fake)
 \section{Compute Environment}
 \label{sec:compute_env}
 
-All experiments reported in this work were run on a single machine equipped with one NVIDIA A100 80\,GB PCIe accelerator. No experiment used more than one GPU. \Cref{tab:hardware} summarises the configuration.
+All experiments reported in this work were run on a single machine equipped with one NVIDIA A100 80\,GB PCIe accelerator. No experiment used more than one GPU. \Cref{tab:hardware} summarises the hardware and software configuration.
 
 \begin{table}[t]
 	\centering
-	\caption{Compute environment used for all experiments.}
+	\caption{Compute and software environment used for all experiments.}
 	\label{tab:hardware}
 	\begin{tabular}{ll}
 		\toprule
 		\textbf{Component} & \textbf{Specification} \\
 		\midrule
-		GPU            & NVIDIA A100 80\,GB PCIe \\
-		GPU driver     & 610.43.02 \\
-		CUDA           & 13.3 \\
-		CPU            & AMD EPYC 7V13, \num{24} vCPUs \\
-		System memory  & \num{216}\,GiB \\
+		GPU              & NVIDIA A100 80\,GB PCIe \\
+		GPU driver       & 610.43.02 \\
+		CUDA             & 13.3 \\
+		CPU              & AMD EPYC 7V13, \num{24} vCPUs \\
+		System memory    & \num{216}\,GiB \\
+		Language runtime & Python 3.12 \\
+		Package manager  & \texttt{uv} \\
 		\bottomrule
 	\end{tabular}
 \end{table}
 
 A single accelerator fixes two constraints that the later sections build on. First, every evaluated model must fit within the \num{80}\,GB memory of one card, with no tensor or pipeline parallelism across devices (\Cref{sec:models}). Second, since one model together with its working memory already occupies most of the card, two models cannot be resident at once, so they run one after another, each loaded and evicted before the next (\Cref{sec:pipeline}).
+
+\paragraph{Software Stack and Reproducibility.}
+All evaluation workflows are implemented in Python 3.12. Dependencies, including exact CUDA 13.3 builds of PyTorch and vLLM wheels, are managed through the \texttt{uv} package manager and locked via a committed \texttt{uv.lock} file. This guarantees deterministic dependency resolution across installations.
+
 
 % -------------------------------------------------------------
 \section{Inference Engine Selection}
@@ -257,7 +263,7 @@ Evaluating nine MLLMs (\Cref{sec:models}) across tens of thousands of video fram
     \item \textbf{Inference Engine Flexibility:} The pipeline must allow different inference backends to be plugged in without changing the evaluation workflow.
 \end{enumerate}
 
-To address these requirements, we developed a modular, configuration driven pipeline based on an extensible registry architecture. At runtime, execution follows an automated lifecycle. The pipeline reads a declarative study plan and expands the requested models, datasets, prompts, and other configurations into a matrix of independent execution units. To maximize GPU efficiency, these units are grouped by model and dispatched sequentially to isolated worker processes. Inside each worker, images are loaded with their associated metadata, formatted into multimodal prompt requests, and sent in batches to the inference provider. The raw textual outputs from the model are then extracted by a deterministic response parser and streamed directly to disk as structured, append only records.
+To address these requirements, we developed a modular, configuration driven pipeline implemented in Python 3.12, based on an extensible registry architecture. At runtime, execution follows an automated lifecycle. The pipeline reads a declarative study plan and expands the requested models, datasets, prompts, and other configurations into a matrix of independent execution units. To maximize GPU efficiency, these units are grouped by model and dispatched sequentially to isolated worker processes. Inside each worker, images are loaded with their associated metadata, formatted into multimodal prompt requests, and sent in batches to the inference provider. The raw textual outputs from the model are then extracted by a deterministic response parser and streamed directly to disk as structured, append only records.
 
 \subsection{Declarative Configuration}
 \label{subsec:declarative_configuration}
