@@ -243,5 +243,87 @@ We take MCC as the primary metric on the grounds established by Chicco and Jurma
 
 A prediction of the failure symbol $\bot$ (\Cref{sec:formulation}) is scored as an incorrect answer rather than discarded, as in FakeBench~\cite{fakebench}. Before \Cref{eq:mcc} is evaluated we assign it the label opposite to the ground truth, so a $\bot$ counts as a false positive on a real frame and a false negative on a fake one. This keeps every frame in the evaluation, so a model that fails to answer is not implicitly rewarded by having those frames removed from its score.
 
+% -------------------------------------------------------------
+\section{Pipeline Architecture}
+\label{sec:pipeline}
 
+\subsection{Overview}
+\label{subsec:pipeline_overview}
+
+Evaluating nine MLLMs (\Cref{sec:models}) across tens of thousands of video frames under hundreds of prompt variations requires an automated and robust evaluation framework. Managing a benchmark of this scale on a single 80\,GB accelerator (\Cref{sec:compute_env}) presents three primary challenges:
+\begin{enumerate}
+    \item \textbf{Experiment Configuration and Tracking:} Combining hundreds of prompts with nine models and multiple datasets results in thousands of evaluation runs. Configuring these manually is prone to errors, so the system requires declarative, version controlled configurations to automate these runs and reliably track all metadata for downstream analysis.
+    \item \textbf{Task Extendability:} Because the experimental methodology evolved progressively as new tasks were designed, the architecture must be easily extendable.
+    \item \textbf{Inference Engine Flexibility:} The pipeline must allow different inference backends to be plugged in without changing the evaluation workflow.
+\end{enumerate}
+
+To address these requirements, we developed a modular, configuration driven pipeline based on an extensible registry architecture. At runtime, execution follows an automated lifecycle. The pipeline reads a declarative study plan and expands the requested models, datasets, prompts, and other configurations into a matrix of independent execution units. To maximize GPU efficiency, these units are grouped by model and dispatched sequentially to isolated worker processes. Inside each worker, images are loaded with their associated metadata, formatted into multimodal prompt requests, and sent in batches to the inference provider. The raw textual outputs from the model are then extracted by a deterministic response parser and streamed directly to disk as structured, append only records.
+
+\subsection{Declarative Configuration}
+\label{subsec:declarative_configuration}
+
+In many evaluation pipelines, experiments are defined through hardcoded python scripts or long lists of command line arguments. These approaches leave no structured record of the experimental setup and make reproducing runs difficult. To ensure transparency, reproducibility, and version control, our pipeline defines all experiments through human readable TOML configuration files.
+
+To avoid repeating model definitions across different experiments, configurations are separated into two distinct layers:
+\begin{enumerate}
+    \item \textbf{Shared Model Configurations (\emph{How to interact with a model}):} Each model has a single, reusable configuration file stored in a central directory. This file defines how to communicate with the inference engine and passes all necessary runtime arguments to instantiate and serve the model. Supported parameters include, for example, the backend engine (such as vLLM or an external API), the model source on Hugging Face, data type precision, maximum context window size, optional LoRA adapters, and custom chat templates.
+    \item \textbf{Study Configurations (\emph{What experiment to run}):} We use the term \emph{study} to refer to a structured experiment designed to evaluate a specific task, such as zero shot classification or few shot in context learning. Rather than creating dozens of separate, repetitive configuration files for each individual combination of model, prompt, and dataset, a study TOML declares all target models, datasets, prompt collections, batch sizes, and sampling settings together in one place.
+\end{enumerate}
+
+The pipeline automatically expands this study definition into an execution matrix by pairing each declared model with every prompt, dataset, and other defined configurations. This allows generating and executing thousands of individual runs from a single, compact configuration file.
+
+\Cref{fig:toml_configs} illustrates this two layer separation. The right side shows a study configuration running a zero shot matrix across datasets, models, sampling settings, and prompt collections. The left side defines a shared model configuration for Nemotron Nano 12B. This example also demonstrates how custom Jinja chat templates can modify model behavior: because the model did not provide a native setting to disable its built in reasoning tokens, we supplied a custom template that accepts \texttt{enable\_thinking = false} to turn off internal thinking during inference.
+
+\begin{figure}[t]
+\begin{minipage}[t]{0.48\textwidth}
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,breaklines=true,frame=single,title={shared\_configs/models/vllm/Nemotron.toml}]
+backend = "vllm"
+alias = "Nemotron-Nano-12B"
+
+[vllm_model]
+model = "nvidia/Nemotron-Nano-12B-v2-VL-BF16"
+trust_remote_code = true
+dtype = "bfloat16"
+
+[vllm_chat_template]
+path = "templates/Nemotron.jinja"
+
+[vllm_chat_template_kwargs]
+enable_thinking = false
+\end{lstlisting}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,breaklines=true,frame=single,title={studies/zero\_shot/stage1.toml}]
+[settings]
+task = "zero_shot"
+batch_size = 150
+
+[[datasets]]
+name = "fows"
+data_loader = "fows_loader"
+root = "/path/to/fows"
+
+[[datasets]]
+name = "gotcha"
+data_loader = "gotcha_loader"
+root = "/path/to/gotcha"
+
+[sampling]
+temperature = 0.0
+max_tokens = 512
+
+[[models]]
+config_file = "vllm/Nemotron.toml"
+
+[[models]]
+config_file = "vllm/gemma-4-31B-it.toml"
+
+[prompts]
+include = ["stage1/**/*.json"]
+\end{lstlisting}
+\end{minipage}
+\caption{Two layer configuration split. Left: a shared model configuration defining engine parameters and custom chat template arguments. Right: a study configuration defining the evaluation matrix across datasets, models, sampling settings, and prompts.}
+\label{fig:toml_configs}
+\end{figure}
 
