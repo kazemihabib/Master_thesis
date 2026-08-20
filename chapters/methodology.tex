@@ -266,9 +266,31 @@ In many evaluation pipelines, experiments are defined through hardcoded python s
 
 To avoid repeating model definitions across different experiments, configurations are separated into two distinct layers:
 \begin{enumerate}
-    \item \textbf{Shared Model Configurations (\emph{How to interact with a model}):} Each model has a single, reusable configuration file stored in a central directory. This file defines how to communicate with the inference engine and passes all necessary runtime arguments to instantiate and serve the model. Supported parameters include, for example, the backend engine (such as vLLM or an external API), the model source on Hugging Face, data type precision, maximum context window size, optional LoRA adapters, and custom chat templates.
-    \item \textbf{Study Configurations (\emph{What experiment to run}):} We use the term \emph{study} to refer to a structured experiment designed to evaluate a specific task, such as zero shot classification or few shot in context learning. Rather than creating dozens of separate, repetitive configuration files for each individual combination of model, prompt, and dataset, a study TOML declares all target models, datasets, prompt collections, batch sizes, and sampling settings together in one place.
+    \item \textbf{Shared Model Configurations (\emph{How to interact with a model}):} Each model has a single, reusable configuration file stored in \texttt{shared\_configs/models/}. This file defines how to communicate with the inference engine and passes all necessary runtime arguments to instantiate and serve the model. Supported parameters include, for example, the backend engine (such as vLLM or an external API), the model source on Hugging Face, data type precision, maximum context window size, optional LoRA adapters, and custom chat templates.
+    \item \textbf{Study Configurations (\emph{What experiment to run}):} We use the term \emph{study} to refer to a structured experiment designed to evaluate a specific task, such as zero shot classification or few shot in context learning. Rather than creating dozens of separate, repetitive configuration files for each individual combination of model, prompt, and dataset, a study TOML declares all target models, datasets, prompt collections, batch sizes, and sampling settings together in one place. These are stored under the \texttt{studies/} directory, divided into task specific folders such as \texttt{zero\_shot/} and \texttt{few\_shot/}.
 \end{enumerate}
+
+\Cref{lst:dir_structure} shows how these components are organized on disk. Under each study category, such as \texttt{zero\_shot/}, individual experiments are defined as dedicated TOML files (for example, \texttt{stage1.toml} or \texttt{stage2\_v3\_full.toml}) and are collocated with their corresponding prompt templates in \texttt{prompts/} and output logs in \texttt{results/}.
+
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,breaklines=true,frame=single,caption={Directory layout of the experimental framework.},label={lst:dir_structure}]
+A100_Experiments/
+|-- shared_configs/
+|   `-- models/
+|       `-- vllm/
+`-- studies/
+    |-- few_shot/
+    |   |-- prompts/
+    |   `-- results/
+    `-- zero_shot/
+        |-- prompts/
+        |-- results/
+        |-- stage1_1000.toml
+        |-- stage1.toml
+        |-- stage2_v3_1000.toml
+        |-- stage2_v3_full.toml
+        |-- stage3_1000.toml
+        `-- stage3_full.toml
+\end{lstlisting}
 
 The pipeline automatically expands this study definition into an execution matrix by pairing each declared model with every prompt, dataset, and other defined configurations. This allows generating and executing thousands of individual runs from a single, compact configuration file.
 
@@ -327,3 +349,33 @@ include = ["stage1/**/*.json"]
 \label{fig:toml_configs}
 \end{figure}
 
+\subsection{Modular Registry Architecture}
+\label{subsec:registry_architecture}
+
+Because the evaluation tasks and experimental directions were designed and refined progressively throughout the research rather than being fully determined from the start, the evaluation framework required a flexible and modular architecture. To allow new experimental paradigms to be introduced without continuously modifying the core execution engine, the pipeline is built around a modular registry pattern.
+
+Under this design, implementing a new component requires only writing a dedicated class or module and annotating it with the corresponding registration decorator, such as \texttt{@register\_task} or \texttt{@register\_provider}. At runtime, factory functions discover and instantiate the required components dynamically based on the declarative strings specified in the study TOML configuration. The pipeline exposes five concrete extension points:
+\begin{enumerate}
+    \item \textbf{Dataset Loaders (\texttt{@register\_data\_loader}):} Encapsulate benchmark specific disk layouts, partition splits, and metadata extraction. When testing new benchmarks in the future, researchers can simply add a new loader without having to convert or reorganise their dataset directory structures into a rigid format. Currently, three loaders are implemented:
+    \begin{itemize}
+        \item \texttt{fows\_loader} and \texttt{gotcha\_loader}: parse the distinct directory layouts of FOWS and GOTCHA respectively. Although the datasets organise files differently on disk, both loaders extract a consistent set of per frame metadata attributes: dataset split, manipulation generator, subject identifier (\texttt{user\_id}), occlusion challenge, and occlusion category (\texttt{occ} or \texttt{no-occ}).
+        \item \texttt{simple\_image\_loader}: loads images organised into two basic subfolders, \texttt{real} and \texttt{fake}, for simple evaluations that do not require detailed metadata.
+    \end{itemize}
+    
+    \item \textbf{Response Parsers (\texttt{@register\_response\_parser}):} Implement the deterministic extraction policy $\pi(t)$ (\Cref{sec:formulation}) to map free text model outputs to binary predictions. Currently, two parsers are implemented:
+    \begin{itemize}
+        \item \texttt{single\_phrase}: scans the text using regular expressions to find occurrences of the designated real or fake target words (such as \texttt{authentic} or \texttt{faceswapped}). It extracts either the first or last matched keyword according to the prompt configuration, mapping it to \texttt{real} or \texttt{fake}, or emitting a parse failure if neither word appears.
+        \item \texttt{verdict}: handles structured outputs by searching for a specified prefix delimiter (such as \texttt{Verdict:}) followed by the target word, extracting the final decision that follows the delimiter.
+    \end{itemize}
+    
+    \item \textbf{Study Parsers (\texttt{@register\_study\_parser}):} Read declarative study TOML files, expand their configurations into a collection of concrete execution units, and group them by model. Currently, two study parsers are implemented:
+    \begin{itemize}
+        \item \texttt{standard}: performs a combinatorial matrix expansion across all declared models, datasets, prompt files, and sampling parameters for zero-shot studies.
+        \item \texttt{few\_shot}: parses few-shot study configurations, managing demonstration pools, exemplar counts, composition rules, and exemplar ordering strategies.
+    \end{itemize}
+    If a future experiment requires a completely different execution layout or experimental structure, it can be supported simply by registering a new study parser.
+
+    \item \textbf{Tasks (\texttt{@register\_task}):} Implement the execution workflow and prompt assembly for an experiment. Each task builds the multimodal message payload for each query image (such as pairing an image with text instructions in \texttt{zero\_shot}, or prepending demonstration images and their corresponding labels in \texttt{few\_shot}), submits batches to the inference provider, and saves the parsed predictions to disk.
+
+    \item \textbf{Inference Providers (\texttt{@register\_provider}):} Implement the communication with the underlying inference engine according to the properties declared in the shared model TOML configuration. Currently, the provider is implemented for local offline \texttt{vllm} execution (\Cref{sec:engine}).
+\end{enumerate}
