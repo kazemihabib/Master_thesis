@@ -647,8 +647,92 @@ We evaluate three distinct reasoning configurations $\mathcal{C}$:
 \paragraph{Experimental Protocol.}
 All three reasoning configurations were evaluated across the three selected models on the balanced development sets of FOWS and GOTCHA. Because reasoning traces increase generation length, the maximum token budget was raised from \num{512} to \num{1024} tokens for Stage 3 evaluation. The deterministic parser $\pi(t)$ extracts the final class phrase using regular expression pattern matching over the generated text. Full comparative results and qualitative trace analyses are reported in \Cref{chap:results}.
 
+% -------------------------------------------------------------
+\section{Few Shot In Context Learning}
+\label{sec:few_shot_method}
 
+\subsection{Overview and Problem Formulation}
+\label{subsec:fewshot_overview}
 
+While the staged zero shot prompt engineering funnel (\Cref{sec:staged_prompting}) evaluates the baseline forensic sensitivity of Multimodal Large Language Models (MLLMs) under various contextual framings, it relies entirely on the pretrained parametric knowledge of each model. A central research question of this work is whether instruction tuned MLLMs can perform in context learning (ICL) in visual forensics: that is, whether providing labeled visual exemplars directly inside the context window enables models to better recognize subtle face swap manipulation artifacts without requiring parameter fine tuning.
 
+In visual face swap detection, in context learning introduces distinct opportunities and challenges compared to pure text tasks. On one hand, showing the model example pairs of real and fake faces might help it recognize what face swap artifacts look like, such as blurry boundaries, unnatural skin tones, or blending artifacts. On the other hand, multimodal in context learning can introduce biases, including label frequency bias where the model predicts the majority demonstration class~\cite{baldassini2024whatmakes}, recency bias where the model repeats the label of the most recent exemplar~\cite{tan2024ordermatters,baldassini2024whatmakes,tian2025positionbias}, or performance drops where adding more demonstration images introduces noise and distracts the model from the task~\cite{dogan2026fewmmbench,qin2024whatfactors}.
 
+\paragraph{Mathematical Task Formulation.}
+We formulate few shot evaluation by re-engaging the prompt parameterization tuple defined in \Cref{sec:formulation}:
+\begin{equation}
+    p = \langle \mathcal{V}, \mathcal{S}, \mathcal{R}, \mathcal{C}, \mathcal{D} \rangle
+\end{equation}
+where $\mathcal{D} = \{(x_1^{(d)}, y_1^{(d)}), \dots, (x_n^{(d)}, y_n^{(d)})\}$ represents an ordered set of $n \ge 1$ labeled visual demonstration exemplars prepended to the target query image $x$. Each exemplar consists of an RGB facial image $x_i^{(d)}$ and its associated ground truth class label $y_i^{(d)} \in \{\text{real}, \text{fake}\}$.
 
+\paragraph{Lineage and Baseline Control.}
+To ensure that performance variations reflect solely the impact of visual demonstrations rather than confounding prompt modifications, all few shot prompts maintain strict lineage with the zero shot Stage~2 winning configurations (\Cref{subsec:stage2_structure}) for the top three evaluated models (\texttt{Qwen3.6-35B-A3B}, \texttt{google/gemma-4-31B-it}, and \texttt{Qwen3.6-27B}):
+\begin{itemize}
+    \item The target class vocabulary $\mathcal{V} = (w_{\text{real}}, w_{\text{fake}})$ is fixed to each model's winning Stage~1 word pair (\Cref{tab:stage1_winners});
+    \item The system persona $\mathcal{R}$ and structural placement $\mathcal{S}$ are retained verbatim from each model's optimal Stage~2 prompt template;
+    \item The reasoning mode is set to direct classification ($\mathcal{C} = \emptyset$), deliberately omitting the Chain of Thought reasoning from Stage~3 to isolate in context demonstration dynamics from autoregressive reasoning effects.
+\end{itemize}
+All few shot results are compared directly against the Stage~2 zero shot baseline on an image level paired basis across identical test partitions and sampling configurations ($\tau = 0.0$).
+
+\subsection{Demonstration Pools and Exemplar Selection}
+\label{subsec:fewshot_pools}
+
+To provide visual exemplars for in context learning, we construct four dedicated demonstration pools based on the two benchmark datasets and their occlusion conditions:
+\begin{enumerate}
+    \item \texttt{fows\_occ}: 10 real and 10 fake frames from the FOWS occluded split;
+    \item \texttt{fows\_noocc}: 10 real and 10 fake frames from the FOWS non-occluded split;
+    \item \texttt{gotcha\_occ}: 10 real and 10 fake frames from the GOTCHA occluded split;
+    \item \texttt{gotcha\_noocc}: 10 real and 10 fake frames from the GOTCHA non-occluded split.
+\end{enumerate}
+Each pool contains an equal number of real and fake images (10 pairs, 20 images total), allowing flexible assembly of balanced and unbalanced demonstration sequences. \Cref{tab:demo_pools} summarizes the composition of each pool.
+
+\begin{table}[t]
+	\centering
+	\caption{Composition of the four demonstration pools. Each pool contains 10 real and 10 fake frames drawn exclusively from the training splits of FOWS and GOTCHA.}
+	\label{tab:demo_pools}
+	\begin{tabular}{llrrr}
+		\toprule
+		\textbf{Pool} & \textbf{Source Dataset} & \textbf{Occlusion Condition} & \textbf{Real} & \textbf{Fake} \\
+		\midrule
+		\texttt{fows\_occ}     & FOWS   & Occluded (\texttt{occ})         & \num{10} & \num{10} \\
+		\texttt{fows\_noocc}   & FOWS   & Non-occluded (\texttt{no-occ})  & \num{10} & \num{10} \\
+		\texttt{gotcha\_occ}   & GOTCHA & Occluded (\texttt{occ})         & \num{10} & \num{10} \\
+		\texttt{gotcha\_noocc} & GOTCHA & Non-occluded (\texttt{no-occ})  & \num{10} & \num{10} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\paragraph{Training Split Isolation.}
+To prevent data leakage, all demonstration frames are sampled strictly from the designated training subjects of each benchmark: the five training subjects in FOWS and the 30 training subjects in GOTCHA. No frames or subjects from the evaluation test partitions appear in the demonstration pools.
+
+\paragraph{Manual Exemplar Selection.}
+All demonstration images were selected manually by hand. For the fake images in both the occluded and non occluded pools, we chose frames showing diverse artifacts and errors across different face swap generators. For the real images, we selected the original frames corresponding to those chosen fake images: in FOWS, this provides the exact real frame from the original recording of each swap, while in GOTCHA, where frame numbers do not directly match between real and swapped videos, the most similar real frame was selected.
+
+\subsection{Experimental Sweep Dimensions}
+\label{subsec:fewshot_dimensions}
+
+To systematically examine how in context visual demonstrations influence model decisions, we define three experimental sweep dimensions: exemplar count, label composition, and ordering.
+
+\paragraph{Demonstration Count ($n$).}
+We evaluate five demonstration counts:
+\begin{equation}
+    n \in \{1, 2, 4, 6, 10\}
+\end{equation}
+Evaluating performance across varying demonstration counts allows us to observe whether face swap detection improves with more visual context, or whether performance saturates and degrades as additional images are added to the prompt.
+
+\paragraph{Label Composition (Class Mix).}
+To test how the balance and arrangement of labels affect model behavior, we evaluate four composition strategies:
+\begin{enumerate}
+    \item \texttt{all\_fake}: provides $n$ consecutive fake demonstrations. This tests whether the model learns visual indicators of face swaps from fake examples, or if it simply collapses into predicting the fake class for all queries.
+    \item \texttt{all\_real}: provides $n$ consecutive real demonstrations. Similarly, this tests whether the model learns from real examples or simply defaults to predicting real.
+    \item \texttt{interleave\_real\_first}: provides an alternating sequence of real and fake examples starting with a real image ($\text{real}, \text{fake}, \text{real}, \dots$). For even values of $n$, the sequence ends with a fake demonstration.
+    \item \texttt{interleave\_fake\_first}: provides an alternating sequence starting with a fake image ($\text{fake}, \text{real}, \text{fake}, \dots$). For even values of $n$, the sequence ends with a real demonstration.
+\end{enumerate}
+
+\paragraph{Investigating Recency and Single Exemplar Priming.}
+Testing interleaved sequences with both starting orders serves a specific analytical purpose. In an alternating sequence of length $n$, starting with real means the final demonstration immediately preceding the test query is fake, whereas starting with fake means the final demonstration is real. Comparing these two conditions helps isolate \emph{recency bias} (whether the model disproportionately repeats the label of the last demonstration it saw) versus \emph{primacy bias} (repeating the first demonstration).
+
+Furthermore, evaluating $n = 1$ provides a direct baseline for single exemplar priming. By comparing $n = 1$ with longer interleaved sequences that end with the same label, we can determine whether the effect of the final demonstration in an interleaved sequence is simply equivalent to seeing a single demonstration of that class.
+
+\paragraph{Sequential Ordering Strategy.}
+For all evaluated conditions, demonstration images are drawn in a fixed, deterministic sequential order (\texttt{seq}) from the curated pools. For any chosen count $n$, the pipeline takes the exact $n$ element prefix from the corresponding ordered pool list. Using fixed sequential prefixes eliminates random sampling variance across runs, ensuring that performance differences across models and prompt settings stem strictly from the experimental variables rather than random exemplar selection.
