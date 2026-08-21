@@ -798,3 +798,48 @@ By default, inference engines such as vLLM limit multimodal input to a single im
 \end{equation}
 allowing the model to process all demonstration images alongside the target query frame within the same context.
 
+\subsection{Evaluation Protocol and Configuration Selection}
+\label{subsec:fewshot_selection}
+
+\paragraph{Exploration Matrix on the Development Set.}
+Following the same methodology as in the zero shot stages (\Cref{subsec:devset,sec:staged_prompting}), we first evaluate candidate configurations on the balanced development sets of FOWS and GOTCHA (\num{1344} frames each) to identify the optimal few shot setup for each model, before running evaluations on the full benchmark test partitions.
+
+For each of the top three models (\texttt{Qwen3.6-35B-A3B}, \texttt{google/gemma-4-31B-it}, and \texttt{Qwen3.6-27B}), the pipeline evaluates every combination of the experimental axes:
+\begin{equation}
+    2 \text{ datasets} \times 4 \text{ pools} \times 4 \text{ compositions} \times 5 \text{ counts } (n) = 160 \text{ units per model}
+\end{equation}
+Across the three models, this yields 480 evaluation units and \num{645120} total inference queries on the development sets.
+
+\paragraph{Pool Averaged Selection Protocol.}
+For each candidate pair of demonstration count and composition $(n, \text{composition})$, the model is evaluated on both development sets under each of the four demonstration pools $\mathcal{P} = \{\texttt{fows\_occ}, \texttt{fows\_noocc}, \texttt{gotcha\_occ}, \texttt{gotcha\_noocc}\}$. The score across the two development sets is computed using the overall MCC definition from \Cref{eq:mcc_overall}:
+\begin{equation}
+    \text{MCC}_{\text{overall}}(p) = \frac{\text{MCC}_{\text{FOWS}}(p) + \text{MCC}_{\text{GOTCHA}}(p)}{2}
+\end{equation}
+To select the configuration that performs best across all visual conditions rather than overfitting to one specific pool, we compute the average of $\text{MCC}_{\text{overall}}$ across all four pools:
+\begin{equation}
+    \overline{\text{MCC}}_{\text{overall}} = \frac{1}{4} \sum_{p \in \mathcal{P}} \text{MCC}_{\text{overall}}(p)
+\end{equation}
+For each model, the pair $(n, \text{composition})$ that achieves the highest $\overline{\text{MCC}}_{\text{overall}}$ on the development sets is selected as its optimal few shot configuration.
+
+\paragraph{Selected Winning Configurations.}
+As summarized in \Cref{tab:fewshot_winners}, each model achieves its peak performance on the development sets under a distinct combination of demonstration count and label mix, reflecting differing architectural sensitivities to in context visual priming.
+
+\begin{table}[t]
+	\centering
+	\caption{Optimal few shot configurations selected for each model on the balanced development sets, ranked by the highest pool averaged overall MCC ($\overline{\text{MCC}}_{\text{overall}}$). Each model achieves its peak performance with a distinct demonstration count and label mix.}
+	\label{tab:fewshot_winners}
+	\begin{tabular}{lrr}
+		\toprule
+		\textbf{Model} & \textbf{Count ($n$)} & \textbf{Winning Composition} \\
+		\midrule
+		\texttt{Qwen3.6-35B-A3B} & \num{2} & \texttt{all\_fake} \\
+		\texttt{gemma-4-31B-it}  & \num{4} & \texttt{all\_real} \\
+		\texttt{Qwen3.6-27B}     & \num{4} & \texttt{interleave\_real\_first} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\paragraph{Full Benchmark Test Partition Evaluation.}
+Using the winning $(n, \text{composition})$ identified on the development set, each model is then evaluated across the full benchmark test partitions of FOWS (\num{12000} frames) and GOTCHA (\num{68899} frames). In this final evaluation, each model is tested across all four demonstration pools to assess both in domain performance (such as FOWS demonstrations evaluated on FOWS test frames) and cross domain transfer (such as GOTCHA demonstrations evaluated on FOWS test frames). Detailed comparative results and analysis are reported in \Cref{chap:results}.
+
+
