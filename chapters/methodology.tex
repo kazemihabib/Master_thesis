@@ -608,6 +608,46 @@ Stage 2 evaluates each of the five selected models exclusively with its Stage 1 
 
 For each model, the 34 prompt variations were ranked according to $\text{MCC}_{\text{overall}}$ (\Cref{eq:mcc_overall}) to determine its optimal structural configuration. Based on their peak performance in Stage 2, the model suite was further narrowed to the top three models: \texttt{Qwen/Qwen3.6-35B-A3B}, \texttt{google/gemma-4-31B-it}, and \texttt{Qwen/Qwen3.6-27B}. These three models were evaluated with their winning prompt structures on the full benchmark test partitions and carried forward to the reasoning evaluations in Stage 3. Detailed comparative breakdowns and empirical comparisons across prompt structures are reported in \Cref{chap:results}.
 
+\subsection{Stage 3: Reasoning Modes}
+\label{subsec:stage3_reasoning}
+
+\paragraph{Objective and Explainability Rationale.}
+Beyond assessing classification accuracy, a critical objective of this benchmark is to evaluate forensic explainability by examining whether Multimodal Large Language Models can explicitly articulate the visual reasoning behind their decisions. In digital forensics, a binary verdict without justification provides limited utility for verification. Stage 3 investigates whether eliciting visual reasoning enables models to identify and describe manipulation traces, while simultaneously evaluating whether generating reasoning tokens improves classification accuracy over direct classification.
+
+Rather than redesigning prompts from scratch, Stage 3 is constructed as a minimal extension of the winning Stage 2 configurations for the three carried forward models: the winning vocabulary $\mathcal{V}$, system message, and persona $\mathcal{R}$ remain unchanged, modifying only the instruction tail of the user message.
+
+\paragraph{Reasoning Configurations.}
+We evaluate three distinct reasoning configurations $\mathcal{C}$:
+\begin{enumerate}
+    \item \textbf{Unguided CoT:} Instructs the model to freely describe its observations and articulate its reasoning before stating the final verdict:
+    \begin{quote}
+        \emph{Is the face in this image $w_{\text{real}}$ or $w_{\text{fake}}$? First, briefly explain what you see and your reasoning. Then answer with exactly one phrase: '$w_{\text{real}}$' or '$w_{\text{fake}}$'.}
+    \end{quote}
+    \item \textbf{Guided CoT:} To provide explicit visual guidance on where to look for manipulation traces, this configuration presents the model with a structured checklist of telltale forensic cues across the face. In existing forensics literature, reasoning prompts frequently incorporate generic whole image synthesis cues, such as irregular background geometry, malformed hands, or strange hair textures~\cite{jia2024can}. While suitable for full image generation where every pixel is synthesized from noise, these cues are largely irrelevant to face swapping, where key surrounding context such as the background, torso, hands, ears, and outer hair remains completely authentic from the original camera capture.
+    
+    We therefore construct a targeted checklist tailored specifically to localized face swapping traces. In particular, because our benchmarks evaluate face swapping under physical obstructions where hands or objects pass in front of the face, we include a dedicated occlusion cue to detect the resulting boundary blending, texture fusion, and unnatural transparency artifacts:
+    \begin{quote}
+        \emph{Is the face in this image $w_{\text{real}}$ or $w_{\text{fake}}$? Look for clues in and around the face. Check each point below. For each, say "normal" unless you can point to a specific problem you actually see in the image; describe exactly what it is and where. Do not infer a problem you cannot directly see.}
+        \begin{itemize}
+            \item \textbf{Boundary:} the edge where the face meets the hairline, ears, jaw, and neck. Look for a hard cut out outline, a ring of blur, or one part looking sharper, blurrier, or a different color than the skin right next to it.
+            \item \textbf{Skin:} the color and texture of the face compared with the neck and ears. Look for the face being lighter, darker, or more waxy and over smooth than the surrounding skin.
+            \item \textbf{Lighting:} the direction of light and the shadows on the face compared with the rest of the image. Look for light or shadows on the face that fall the wrong way or don't match the rest of the image.
+            \item \textbf{Eyes and teeth:} the eyes, and the teeth if visible. Look for missing or blurred eyelashes, the bright reflections in the two eyes not matching, oddly shaped pupils, or smeared or malformed teeth.
+            \item \textbf{Fit:} how well the face sits on the head. Look for features that are out of place, or a face that is the wrong size or shape for the head.
+            \item \textbf{Occlusion:} a hand or object passing in front of the face. Look for a blurred or smeared boundary between them, the object and face appearing fused together, the skin color spreading onto the object, or the object looking partly transparent or warped instead of solidly in front.
+        \end{itemize}
+        \emph{Then answer with exactly one phrase: '$w_{\text{real}}$' or '$w_{\text{fake}}$'.}
+    \end{quote}
+    \item \textbf{Answer First:} In standard CoT prompting (Unguided and Guided CoT), generated reasoning tokens precede and autoregressively condition the final verdict. This introduces the risk of hallucination drift or error accumulation, where intermediate mistakes in the reasoning trace cause the model to deviate from an initially correct visual impression. To evaluate whether generating reasoning first actively assists or distracts the model from making a correct decision, Answer First instructs the model to state its binary decision immediately, conditioned solely on the input image, and generate its explanation afterwards:
+    \begin{quote}
+        \emph{Is the face in this image $w_{\text{real}}$ or $w_{\text{fake}}$? First, answer with exactly one phrase: '$w_{\text{real}}$' or '$w_{\text{fake}}$'. Then briefly explain what you see and the reasoning behind your answer.}
+    \end{quote}
+\end{enumerate}
+
+\paragraph{Experimental Protocol.}
+All three reasoning configurations were evaluated across the three selected models on the balanced development sets of FOWS and GOTCHA. Because reasoning traces increase generation length, the maximum token budget was raised from \num{512} to \num{1024} tokens for Stage 3 evaluation. The deterministic parser $\pi(t)$ extracts the final class phrase using regular expression pattern matching over the generated text. Full comparative results and qualitative trace analyses are reported in \Cref{chap:results}.
+
+
 
 
 
