@@ -78,7 +78,7 @@ FOWS (Face Occlusion With Swapping) is a dataset collected by Ziglio et al.~\cit
 Recording was driven by a guiding video overlaid on the camera feed that indicated where to place the face and the occluder. For each challenge they defined three variants with different occluder trajectories, for six guiding videos of about 40 seconds. Every clip starts with a static segment showing the face without occlusion and continues with a dynamic segment of roughly 15 seconds in which the occluder moves across the face. Seven subjects each recorded the six variants, giving 42 genuine clips.
 
 For each genuine recording, manipulated counterparts were produced with three generators that swap faces from a single target image, SimSwap~\cite{simswap}, GHOST~\cite{ghost}, and FaceDancer~\cite{facedancer}, using royalty-free celebrity photographs as target identities. A fourth generator, DLC, was added after publication and is not described in the paper.
-% TODO: add citation and full name for DLC once located.
+\guide{TODO: add citation and full name for DLC.}
 
 In total, FOWS provides \num{42000} frames over the seven subjects, evenly split between occluded and non-occluded frames. Five subjects form the training pool used for few-shot demonstrations (\Cref{sec:few_shot_method}); the remaining two form the \textbf{test partition}, a deliberately challenging split of the only female subject and the only male subject with a thick beard. The test partition contains \num{12000} frames (\num{2400} real and \num{9600} fake), a $1:4$ ratio of real to fake frames obtained by pairing each genuine frame with its four swaps.
 
