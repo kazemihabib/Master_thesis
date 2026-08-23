@@ -62,7 +62,7 @@ Across all nine models, 28 prompt word pairs, and two development sets, a total 
 \begin{figure}[t]
 	\centering
 	\includegraphics[width=0.72\textwidth]{figures/stage1_scatter.pdf}
-	\caption{Stage 1 peak zero shot detection performance across models on the balanced development sets. Each point corresponds to a model evaluated with its locked winning vocabulary pair. The dashed $y = x$ line indicates equal performance on both datasets (points above indicate higher performance on GOTCHA). Dotted anti-diagonals mark iso-overall MCC contours ($\text{MCC}_{\text{overall}} = k$). Colored stars denote the five models advancing to Stage~2; open gray circles denote dropped models.}
+	\caption{Stage 1 peak zero shot detection performance across models on the balanced development sets. Each point corresponds to a model evaluated with its locked winning vocabulary pair. The dashed $y = x$ line indicates equal performance on both datasets (points above indicate higher performance on GOTCHA). Dotted diagonals mark overall MCC contours ($\text{MCC}_{\text{overall}} = k$). Colored stars denote the five models advancing to Stage~2; open gray circles denote dropped models.}
 	\label{fig:stage1_scatter}
 \end{figure}
 
@@ -141,13 +141,13 @@ Beyond peak accuracy, Stage 1 quantifies how fragile each model is to wording mo
 
 The sensitivity analysis reveals two distinct behavioral regimes:
 \begin{enumerate}
-    \item \textbf{High Capability Models Exhibit High Lexical Fragility:} The most capable models display the largest performance swings across word choices. Qwen3.6-35B-A3B exhibits the highest sensitivity ($\text{STD} = \num{0.130}$), with scores ranging from \num{0.097} on suboptimal pairs to \num{0.585} on its winning pair—a spread of \num{0.488} MCC driven entirely by changing two words in the prompt. Similarly, Kimi-VL, Qwen3.6-27B, and Llama-4-Scout show spreads exceeding \num{0.410} MCC.
+    \item \textbf{High Capability Models Exhibit High Lexical Fragility:} The most capable models display the largest performance swings across word choices. Qwen3.6-35B-A3B exhibits the highest sensitivity ($\text{STD} = \num{0.130}$), with scores ranging from \num{0.097} on suboptimal pairs to \num{0.585} on its winning pair, a spread of \num{0.488} MCC driven entirely by changing two words in the prompt. Similarly, Kimi-VL, Qwen3.6-27B, and Llama-4-Scout show spreads exceeding \num{0.410} MCC.
     \item \textbf{Weaker Models Show Low Variance at Low Performance:} Models with the lowest standard deviations, such as GLM-4.6V-Flash ($\text{STD} = \num{0.043}$) and Phi-4-multimodal ($\text{STD} = \num{0.054}$), remain consistently near chance across all word pairs.
 \end{enumerate}
 
 \subsection{Selection of Advancing Models}
 \label{subsec:stage1_selection}
 
-Based on the development set results, the five top ranking models—Qwen3.6-35B-A3B, Qwen3.6-27B, gemma-4-31B-it, Kimi-VL-A3B-Instruct, and Llama-4-Scout-17B—are selected to advance to Stage~2. Each selected model is strictly locked to its own Stage~1 winning vocabulary pair (\Cref{tab:results_stage1_winners}) for all subsequent structural and persona evaluations.
+Based on the development set results, the five top ranking models (Qwen3.6-35B-A3B, Qwen3.6-27B, gemma-4-31B-it, Kimi-VL-A3B-Instruct, and Llama-4-Scout-17B) are selected to advance to Stage~2. Each selected model is strictly locked to its own Stage~1 winning vocabulary pair (\Cref{tab:results_stage1_winners}) for all subsequent structural and persona evaluations.
 
 The remaining four models (Nemotron-Nano-12B, GLM-4.6V-Flash, InternVL3.5-30B, and Phi-4-multimodal) achieved peak scores below \num{0.380} overall MCC on the development sets and were excluded from further exploration to maintain computational tractability.
