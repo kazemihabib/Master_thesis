@@ -1,7 +1,153 @@
 % =============================================================
-% RESULTS AND DISCUSSION
-% Content intentionally removed pending rewrite (previous draft held
-% unverified figures and numbers).
+% CHAPTER 5 — RESULTS AND DISCUSSION
 % =============================================================
 \chapter{Results and Discussion}
 \label{chap:results}
+
+This chapter presents the empirical evaluation and forensic analysis of multimodal large language models for single image face swap detection. Across all experiments, models are evaluated in off the shelf configurations without parameter fine tuning, measuring their intrinsic ability to identify facial manipulation artifacts under zero shot and few shot prompting regimes.
+
+% -------------------------------------------------------------
+\section{Overview and Experimental Roadmap}
+\label{sec:results_overview}
+
+To manage computational tractability, experiments follow an integrated two tier structure within each stage. Experiments are first systematically explored and filtered on balanced development sets from FOWS and GOTCHA. The optimal configurations identified in each stage are then validated on the complete benchmark test partitions, comprising over \num{80000} frames across both datasets.
+
+\guide{TODO: Add roadmap of chapter sections once all stage drafts are finalized.}
+
+% -------------------------------------------------------------
+\section{Stage 1: Zero Shot Lexical Search and Model Selection}
+\label{sec:results_stage1}
+
+Stage 1 evaluates the intrinsic zero shot capability of all nine candidate models across the complete $4 \times 7 = 28$ grid of real and fake target word pairs on the balanced development sets of FOWS and GOTCHA. The objective of this initial stage is threefold:
+\begin{enumerate}
+    \item Assess the baseline feasibility of zero shot face swap detection across diverse model architectures;
+    \item Quantify model sensitivity to target class vocabulary words; and
+    \item Identify the optimal word pair for each model and select the top five performers to advance to Stage~2.
+\end{enumerate}
+
+\subsection{Instruction Following and Parsing Reliability}
+\label{subsec:stage1_reliability}
+
+Across all nine models, 28 prompt word pairs, and two development sets, a total of \num{677376} individual image classifications were evaluated. Under the deterministic single phrase extraction policy ($\pi(t)$, \Cref{sec:formulation}), eight of the nine evaluated models achieved a \num{100}\% parse success rate with zero formatting errors. Across the entire evaluation, only a single query from Nemotron-Nano-12B failed to emit a clean binary verdict. The strict single phrase format constraint was followed reliably across all model architectures.
+
+\subsection{Feasibility and Model Ranking}
+\label{subsec:stage1_feasibility}
+
+\Cref{tab:results_stage1_winners} summarizes the performance of all nine models, evaluated at each model's locked winning vocabulary pair. \Cref{fig:stage1_scatter} visualizes these peak configurations on a FOWS versus GOTCHA correlation scatter plot.
+
+\begin{table}[t]
+	\centering
+	\small
+	\setlength{\tabcolsep}{5pt}
+	\caption{Stage 1 zero shot lexical search and model selection on the balanced development sets. Each model is reported at its own best performing word pair, ranked by overall MCC ($\text{MCC}_{\text{overall}} = (\text{MCC}_{\text{FOWS}} + \text{MCC}_{\text{GOTCHA}})/2$). The horizontal rule separates the top five models advancing to Stage 2 from the dropped models.}
+	\label{tab:results_stage1_winners}
+	\begin{tabular}{llrrr}
+		\toprule
+		\textbf{Model} & \textbf{Winning Vocabulary ($w_{\text{real}}$ / $w_{\text{fake}}$)} & \textbf{Overall} & \textbf{FOWS} & \textbf{GOTCHA} \\
+		\midrule
+		Qwen3.6-35B-A3B   & \texttt{authentic} / \texttt{faceswapped} & \num{0.585} & \num{0.419} & \num{0.752} \\
+		Qwen3.6-27B       & \texttt{bona fide} / \texttt{faceswapped} & \num{0.527} & \num{0.443} & \num{0.611} \\
+		gemma-4-31B-it    & \texttt{bona fide} / \texttt{generated}   & \num{0.483} & \num{0.562} & \num{0.403} \\
+		Kimi-VL-A3B       & \texttt{original}  / \texttt{synthetic}   & \num{0.480} & \num{0.557} & \num{0.403} \\
+		Llama-4-Scout     & \texttt{authentic} / \texttt{fake}        & \num{0.472} & \num{0.492} & \num{0.452} \\
+		\midrule
+		Nemotron-Nano-12B & \texttt{bona fide} / \texttt{modified}    & \num{0.375} & \num{0.308} & \num{0.442} \\
+		GLM-4.6V-Flash    & \texttt{original}  / \texttt{deepfake}    & \num{0.337} & \num{0.216} & \num{0.459} \\
+		InternVL3.5-30B   & \texttt{bona fide} / \texttt{synthetic}   & \num{0.274} & \num{0.186} & \num{0.362} \\
+		Phi-4-multimodal  & \texttt{real}      / \texttt{modified}    & \num{0.231} & \num{0.078} & \num{0.383} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=0.72\textwidth]{figures/stage1_scatter.pdf}
+	\caption{Stage 1 peak zero shot detection performance across models on the balanced development sets. Each point corresponds to a model evaluated with its locked winning vocabulary pair. The dashed $y = x$ line indicates equal performance on both datasets (points above indicate higher performance on GOTCHA). Dotted anti-diagonals mark iso-overall MCC contours ($\text{MCC}_{\text{overall}} = k$). Colored stars denote the five models advancing to Stage~2; open gray circles denote dropped models.}
+	\label{fig:stage1_scatter}
+\end{figure}
+
+Across model architectures and benchmarks, two primary patterns emerge:
+\begin{itemize}
+    \item \textbf{Performance Spread:} Peak overall MCC spans from near chance performance (\num{0.231} for Phi-4-multimodal) to strong correlation (\num{0.585} for Qwen3.6-35B-A3B). The top five models all surpass \num{0.470} overall MCC.
+    \item \textbf{Cross Dataset Difficulty:} In \Cref{fig:stage1_scatter}, seven of the nine models sit above the dashed $y = x$ diagonal, indicating that GOTCHA is generally the more accessible benchmark under zero shot prompting. Qwen3.6-35B-A3B achieves the highest single dataset score across the entire study with an MCC of \num{0.752} on GOTCHA. Conversely, gemma-4-31B-it and Kimi-VL-A3B display an inverted pattern, achieving higher detection correlation on FOWS (\num{0.562} and \num{0.557} respectively) than on GOTCHA (\num{0.403}).
+\end{itemize}
+
+\subsection{Occlusion Dynamics across Benchmarks}
+\label{subsec:stage1_occlusion}
+
+\Cref{fig:stage1_occ_vs_noocc} compares each model's detection performance on occluded faces versus non occluded faces across FOWS (left) and GOTCHA (right).
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=0.95\textwidth]{figures/stage1_occ_vs_noocc.png}
+	\caption{Occluded versus non occluded zero shot detection performance (MCC) on the balanced development sets of FOWS (left) and GOTCHA (right). Each point represents a model evaluated at its Stage 1 winning vocabulary pair. The dashed $y = x$ line denotes equal performance on occluded and non occluded frames. Points below the line indicate higher detection performance on occluded faces; points above indicate higher performance on clean, non occluded faces. Colored stars denote advancing models; gray circles denote dropped models.}
+	\label{fig:stage1_occ_vs_noocc}
+\end{figure}
+
+The empirical results show distinct behavior across the two benchmarks:
+\begin{itemize}
+    \item \textbf{GOTCHA:} All nine models sit strictly below the dashed $y = x$ diagonal, scoring higher on occluded faces than on non occluded faces. For example, Qwen3.6-35B-A3B reaches \num{0.83} MCC on occluded frames compared to \num{0.68} on non occluded frames, and Qwen3.6-27B reaches \num{0.77} on occluded frames compared to \num{0.45} on non occluded frames.
+    \item \textbf{FOWS:} Several top models sit above the dashed $y = x$ diagonal, scoring higher on non occluded frames than on occluded frames. For instance, Kimi-VL-A3B scores \num{0.71} on non occluded frames versus \num{0.43} on occluded frames, and gemma-4-31B-it scores \num{0.62} on non occluded frames versus \num{0.53} on occluded frames.
+\end{itemize}
+
+\subsection{Model Specific Vocabulary Preferences}
+\label{subsec:stage1_vocab_preferences}
+
+A central finding of Stage 1 is that \textbf{there is no universal optimal word pair} for zero shot face swap detection across multimodal architectures. As reported in \Cref{tab:results_stage1_winners}, every one of the top five advancing models achieves its highest MCC on a completely distinct vocabulary pair:
+\begin{itemize}
+    \item \textbf{Qwen3.6-35B-A3B} performs best with \texttt{authentic} / \texttt{faceswapped};
+    \item \textbf{Qwen3.6-27B} achieves its peak with \texttt{bona fide} / \texttt{faceswapped};
+    \item \textbf{gemma-4-31B-it} prefers \texttt{bona fide} / \texttt{generated};
+    \item \textbf{Kimi-VL-A3B-Instruct} reaches its highest score with \texttt{original} / \texttt{synthetic}; and
+    \item \textbf{Llama-4-Scout-17B} favors \texttt{authentic} / \texttt{fake}.
+\end{itemize}
+
+This divergence aligns with prior findings showing that multimodal models have distinct, model specific lexical sensitivities~\cite{ismithdeen2025promptception,dumpala2024sensitivity}. Evaluating all models with a single default pair (such as \texttt{real} / \texttt{fake}) would unfairly penalize models that prefer other words, underestimating their true detection ability.
+
+\subsection{Prompt Sensitivity and Fragility}
+\label{subsec:stage1_sensitivity}
+
+Beyond peak accuracy, Stage 1 quantifies how fragile each model is to wording modifications. \Cref{fig:stage1_sensitivity} displays the distribution of all 28 overall MCC scores for each model, ordered from left to right by standard deviation (STD), while \Cref{tab:results_stage1_sensitivity} reports the exact sensitivity metrics and score spreads.
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=0.88\textwidth]{figures/stage1_sensitivity.pdf}
+	\caption{Prompt sensitivity distributions across all 28 target vocabulary pairs on the balanced development sets. Each box plot displays the 28 overall MCC scores obtained by a model, showing individual word pair scores alongside quartile boxes. Models are ordered from left to right by decreasing standard deviation (most fragile to most robust). Blue boxes denote models advancing to Stage 2; gray boxes denote dropped models.}
+	\label{fig:stage1_sensitivity}
+\end{figure}
+
+\begin{table}[t]
+	\centering
+	\small
+	\setlength{\tabcolsep}{6pt}
+	\caption{Prompt sensitivity metrics across all 28 target vocabulary pairs on the balanced development sets, ordered by standard deviation (STD). Spread denotes the difference between maximum and minimum overall MCC.}
+	\label{tab:results_stage1_sensitivity}
+	\begin{tabular}{lrrrr}
+		\toprule
+		\textbf{Model} & \textbf{Sensitivity (STD)} & \textbf{Min MCC} & \textbf{Max MCC} & \textbf{Spread} \\
+		\midrule
+		Qwen3.6-35B-A3B   & \num{0.130} & \num{0.097}  & \num{0.585} & \num{0.488} \\
+		Kimi-VL-A3B       & \num{0.103} & \num{0.030}  & \num{0.480} & \num{0.450} \\
+		Qwen3.6-27B       & \num{0.099} & \num{0.110}  & \num{0.527} & \num{0.417} \\
+		Llama-4-Scout     & \num{0.095} & \num{0.050}  & \num{0.472} & \num{0.422} \\
+		gemma-4-31B-it    & \num{0.094} & \num{0.161}  & \num{0.483} & \num{0.322} \\
+		Nemotron-Nano-12B & \num{0.094} & \num{-0.027} & \num{0.375} & \num{0.403} \\
+		InternVL3.5-30B   & \num{0.057} & \num{0.043}  & \num{0.274} & \num{0.231} \\
+		Phi-4-multimodal  & \num{0.054} & \num{0.000}  & \num{0.231} & \num{0.231} \\
+		GLM-4.6V-Flash    & \num{0.043} & \num{0.166}  & \num{0.337} & \num{0.172} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+The sensitivity analysis reveals two distinct behavioral regimes:
+\begin{enumerate}
+    \item \textbf{High Capability Models Exhibit High Lexical Fragility:} The most capable models display the largest performance swings across word choices. Qwen3.6-35B-A3B exhibits the highest sensitivity ($\text{STD} = \num{0.130}$), with scores ranging from \num{0.097} on suboptimal pairs to \num{0.585} on its winning pair—a spread of \num{0.488} MCC driven entirely by changing two words in the prompt. Similarly, Kimi-VL, Qwen3.6-27B, and Llama-4-Scout show spreads exceeding \num{0.410} MCC.
+    \item \textbf{Weaker Models Show Low Variance at Low Performance:} Models with the lowest standard deviations, such as GLM-4.6V-Flash ($\text{STD} = \num{0.043}$) and Phi-4-multimodal ($\text{STD} = \num{0.054}$), remain consistently near chance across all word pairs.
+\end{enumerate}
+
+\subsection{Selection of Advancing Models}
+\label{subsec:stage1_selection}
+
+Based on the development set results, the five top ranking models—Qwen3.6-35B-A3B, Qwen3.6-27B, gemma-4-31B-it, Kimi-VL-A3B-Instruct, and Llama-4-Scout-17B—are selected to advance to Stage~2. Each selected model is strictly locked to its own Stage~1 winning vocabulary pair (\Cref{tab:results_stage1_winners}) for all subsequent structural and persona evaluations.
+
+The remaining four models (Nemotron-Nano-12B, GLM-4.6V-Flash, InternVL3.5-30B, and Phi-4-multimodal) achieved peak scores below \num{0.380} overall MCC on the development sets and were excluded from further exploration to maintain computational tractability.
