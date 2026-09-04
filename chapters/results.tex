@@ -62,7 +62,7 @@ Across all nine models, 28 prompt word pairs, and two development sets, a total 
 \begin{figure}[t]
 	\centering
 	\includegraphics[width=0.72\textwidth]{figures/stage1_scatter.pdf}
-	\caption{Stage 1 peak zero shot detection performance across models on the balanced development sets. Each point corresponds to a model evaluated with its locked winning vocabulary pair. The dashed $y = x$ line indicates equal performance on both datasets (points above indicate higher performance on GOTCHA). Dotted diagonals mark overall MCC contours ($\text{MCC}_{\text{overall}} = k$). Colored stars denote the five models advancing to Stage~2; open gray circles denote dropped models.}
+	\caption{Stage 1 peak zero shot detection performance across models on the balanced development sets. Each point corresponds to a model evaluated with its locked winning vocabulary pair. The dashed $y = x$ line indicates equal performance on both datasets (points above indicate higher performance on GOTCHA). Dotted anti-diagonals mark iso-overall MCC contours ($\text{MCC}_{\text{overall}} = k$). Colored stars denote the five models advancing to Stage~2; open gray circles denote dropped models.}
 	\label{fig:stage1_scatter}
 \end{figure}
 
@@ -102,7 +102,7 @@ A central finding of Stage 1 is that \textbf{there is no universal optimal word 
     \item \textbf{Llama-4-Scout-17B} favors \texttt{authentic} / \texttt{fake}.
 \end{itemize}
 
-This divergence aligns with prior findings showing that multimodal models have distinct, model specific lexical sensitivities~\cite{ismithdeen2025promptception,dumpala2024sensitivity}. Evaluating all models with a single default pair (such as \texttt{real} / \texttt{fake}) would unfairly penalize models that prefer other words, underestimating their true detection ability.
+This divergence aligns with prior findings showing that multimodal models have distinct, model specific lexical sensitivities~\cite{dumpala2024sensitivity,ismithdeen2025promptception}. Evaluating all models with a single default pair (such as \texttt{real} / \texttt{fake}) would unfairly penalize models that prefer other words, underestimating their true detection ability.
 
 \subsection{Prompt Sensitivity and Fragility}
 \label{subsec:stage1_sensitivity}
@@ -151,3 +151,132 @@ The sensitivity analysis reveals two distinct behavioral regimes:
 Based on the development set results, the five top ranking models (Qwen3.6-35B-A3B, Qwen3.6-27B, gemma-4-31B-it, Kimi-VL-A3B-Instruct, and Llama-4-Scout-17B) are selected to advance to Stage~2. Each selected model is strictly locked to its own Stage~1 winning vocabulary pair (\Cref{tab:results_stage1_winners}) for all subsequent structural and persona evaluations.
 
 The remaining four models (Nemotron-Nano-12B, GLM-4.6V-Flash, InternVL3.5-30B, and Phi-4-multimodal) achieved peak scores below \num{0.380} overall MCC on the development sets and were excluded from further exploration to maintain computational tractability.
+
+% -------------------------------------------------------------
+\section{Stage 2: Structural Framing and Persona Engineering}
+\label{sec:results_stage2}
+
+Building upon the locked winning vocabulary pairs from Stage 1, Stage 2 evaluates how semantic definitions, task descriptions, and expert personas affect zero shot face swap detection. Following the taxonomy of nine structural templates defined in \Cref{tab:stage2_structures}, the five advancing models (\texttt{Qwen3.6-35B-A3B}, \texttt{Qwen3.6-27B}, \texttt{gemma-4-31B-it}, \texttt{Kimi-VL-A3B-Instruct}, and \texttt{Llama-4-Scout-17B}) are evaluated across 34 prompt configurations on the balanced development sets.
+
+\subsection{Overall Structural and Persona Impact}
+\label{subsec:stage2_overall}
+
+\Cref{fig:stage2_overall_whiskers} illustrates the overall performance change ($\Delta\text{MCC}_{\text{overall}}$) relative to each model's locked Stage 1 baseline across the evaluated configurations:
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=\textwidth]{figures/stage2_overall_whiskers.png}
+	\caption{Overall MCC change ($\Delta\text{MCC}_{\text{overall}}$) relative to the Stage 1 baseline on the balanced development sets across all nine structural templates. Colored bars represent explanation prompts without personas (templates 1--4), whiskers show the score range across the six expert personas (templates 6--9), gray markers denote persona only prompts (template 5), and white dots mark persona means.}
+	\label{fig:stage2_overall_whiskers}
+\end{figure}
+
+\begin{itemize}
+    \item \textbf{Explanation Effects and Persona Alignment:} For four of the five models (\texttt{Qwen3.6-35B-A3B}, \texttt{Qwen3.6-27B}, \texttt{Kimi-VL-A3B-Instruct}, and \texttt{Llama-4-Scout-17B}), adding semantic definitions or task descriptions alone consistently reduces detection performance relative to the Stage 1 baseline, with drops reaching up to \num{0.51} $\Delta\text{MCC}$. Only \texttt{gemma-4-31B-it} benefits directly from standalone explanations (\texttt{def\_sys} improves overall MCC by \num{+0.163}, and \texttt{task\_sys} by \num{+0.153}). For Qwen35 and Qwen27, improvements over the baseline are unlocked only when combining these definitions and tasks with an aligned expert persona (for example, \texttt{P6} Content Integrity Moderator on Qwen35). In contrast, for \texttt{Kimi-VL-A3B-Instruct} and \texttt{Llama-4-Scout-17B}, the extra context consistently hurts performance, yielding no meaningful improvement over their Stage 1 baselines regardless of structural placement or persona choice. Furthermore, persona choice is critical: while aligned personas restore and enhance performance, unsuitable personas degrade scores even further.
+    \item \textbf{System vs User Role Placement:} The impact of placing explanations in the system message versus the user message is not uniform across model architectures or explanation types:
+    \begin{itemize}
+        \item In \texttt{gemma-4-31B-it}, system message placement is consistently superior across both types, yielding large gains on \texttt{def\_sys} (\num{+0.163} vs \num{-0.123} on \texttt{def\_usr}) and on \texttt{task\_sys} (\num{+0.154} vs \num{+0.008} on \texttt{task\_usr}).
+        \item In \texttt{Qwen3.6-35B-A3B}, the preferred placement depends on the explanation type: for semantic definitions, system placement is less harmful than user placement (\num{-0.247} on \texttt{def\_sys} vs \num{-0.280} on \texttt{def\_usr}), whereas for task descriptions, user placement is less harmful (\num{-0.081} on \texttt{task\_usr} vs \num{-0.103} on \texttt{task\_sys}).
+    \end{itemize}
+\end{itemize}
+
+\subsection{Occlusion Dynamics in Stage 2}
+\label{subsec:stage2_occlusion}
+
+\Cref{fig:stage2_occluded} analyzes whether structural framing and persona engineering alter the occlusion dynamics observed in Stage 1, comparing detection performance on occluded versus non occluded frames at each model's peak Stage 2 configuration.
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=0.92\textwidth]{figures/stage2_1000_occluded.png}
+	\caption{Occluded versus non occluded zero shot detection performance (MCC) on the balanced development sets of FOWS (left) and GOTCHA (right), evaluated at each model's peak Stage 2 prompt configuration. The dashed $y = x$ diagonal indicates equal performance on both subsets. Points below the diagonal indicate higher detection performance on occluded faces.}
+	\label{fig:stage2_occluded}
+\end{figure}
+
+The comparison reveals two main findings:
+\begin{itemize}
+    \item \textbf{Persistent Occlusion Advantage on GOTCHA:} Consistent with Stage 1, all five models on GOTCHA continue to achieve higher detection performance on occluded frames than on non occluded frames, placing every model below the dashed $y = x$ diagonal. In particular, \texttt{Qwen3.6-27B} reaches \num{0.886} on occluded frames compared to \num{0.675} on non occluded frames, \texttt{Qwen3.6-35B-A3B} scores \num{0.827} versus \num{0.763}, and \texttt{gemma-4-31B-it} scores \num{0.822} versus \num{0.469}.
+    \item \textbf{FOWS Proximity to Diagonal and Gemma Shift:} On FOWS, models cluster much closer to the dashed $y = x$ diagonal. \texttt{Qwen3.6-35B-A3B} sits slightly below the diagonal, scoring \num{0.596} on occluded frames versus \num{0.561} on non occluded frames. Notably, whereas \texttt{gemma-4-31B-it} sat above the diagonal in Stage 1, in Stage 2 it shifts below the diagonal, achieving \num{0.717} on occluded frames compared to \num{0.653} on non occluded frames. \texttt{Llama-4-Scout-17B} also sits below the line (\num{0.530} on occluded vs \num{0.239} on non occluded frames), while \texttt{Qwen3.6-27B} (\num{0.502} vs \num{0.587}) and \texttt{Kimi-VL-A3B-Instruct} (\num{0.534} vs \num{0.621}) remain above the diagonal.
+\end{itemize}
+
+\subsection{Configuration Trade-offs and Model Selection}
+\label{subsec:stage2_selection}
+
+\Cref{tab:results_stage2_winners} summarizes the performance of all five models evaluated at their peak Stage 2 configurations, along with parse failure statistics across individual winning configurations and all 34 evaluated configurations combined. \Cref{fig:stage2_scatter_best} visualizes each model's trajectory from its Stage 1 baseline to its peak Stage 2 configuration on a FOWS versus GOTCHA correlation scatter plot.
+
+\begin{table}[t]
+	\centering
+	\small
+	\resizebox{\textwidth}{!}{
+	\begin{tabular}{cllllrrrrrr}
+		\toprule
+		\textbf{Rank} & \textbf{Model} & \textbf{Best Structure} & \textbf{Persona} & \textbf{Overall} & \textbf{FOWS} & \textbf{GOTCHA} & \textbf{Fails (Best)} & \textbf{Rate (Best)} & \textbf{Fails (All)} & \textbf{Rate (All)} \\
+		\midrule
+		1 & Qwen3.6-35B-A3B & persona + task (user)         & integrity moderator & \num{0.675} & \num{0.562} & \num{0.788} & 0 & \num{0.0000}\% & 0  & \num{0.0000}\% \\
+		2 & gemma-4-31B-it  & persona + definition (system) & cv researcher       & \num{0.663} & \num{0.683} & \num{0.643} & 0 & \num{0.0000}\% & 2  & \num{0.0022}\% \\
+		3 & Qwen3.6-27B     & persona only                  & deepfake specialist & \num{0.655} & \num{0.529} & \num{0.781} & 0 & \num{0.0000}\% & 0  & \num{0.0000}\% \\
+		\midrule
+		4 & Llama-4-Scout   & persona only                  & vfx artist          & \num{0.485} & \num{0.357} & \num{0.614} & 0 & \num{0.0000}\% & 72 & \num{0.0788}\% \\
+		5 & Kimi-VL-A3B     & persona only                  & integrity moderator & \num{0.472} & \num{0.561} & \num{0.383} & 0 & \num{0.0000}\% & 0  & \num{0.0000}\% \\
+		\bottomrule
+	\end{tabular}
+	}
+	\caption{Stage 2 structural framing and persona engineering results on the balanced development sets. Models are ranked by peak overall MCC. The horizontal rule separates the top three models advancing to the full benchmark test evaluation from the dropped models. Parse failure statistics report formatting errors on the peak configuration and across all 34 evaluated configurations combined.}
+	\label{tab:results_stage2_winners}
+\end{table}
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=0.68\textwidth]{figures/stage2_1000_scatter_best.png}
+	\caption{Peak Stage 2 prompt configuration per model versus its Stage 1 locked baseline on the balanced development sets (FOWS vs GOTCHA). Open diamonds mark Stage 1 baselines; filled stars mark peak Stage 2 configurations; connecting vectors illustrate the trajectory of performance change. Dashed anti-diagonals represent iso-overall MCC contours.}
+	\label{fig:stage2_scatter_best}
+\end{figure}
+
+The trajectory analysis in \Cref{fig:stage2_scatter_best} illustrates that most models sit well above the dashed $y = x$ diagonal, indicating that manipulation artifacts in GOTCHA remain generally easier to detect than those in FOWS across architectures. In contrast, \texttt{gemma-4-31B-it} occupies a unique position as the only model that balances performance while achieving the highest FOWS score in the study. Across the evaluated architectures, three distinct behavioral patterns emerge:
+\begin{itemize}
+    \item \textbf{gemma-4-31B-it:} Experiences the most dramatic advancement (red vector), shifting from its Stage 1 baseline of \num{0.483} overall MCC to a peak of \num{0.663} under \texttt{def\_sys} with the Computer Vision Researcher persona (\texttt{P5}), achieving strong, balanced correlation across both benchmarks (FOWS: \num{0.683}, GOTCHA: \num{0.643}).
+    \item \textbf{Qwen3.6 Family (35B and 27B):} Both architectures maintain leading detection performance. \texttt{Qwen3.6-35B-A3B} (blue vector) achieves the highest overall peak score in Stage 2 at \num{0.675} overall MCC (FOWS: \num{0.562}, GOTCHA: \num{0.788}) using \texttt{task\_usr} with the Content Integrity Moderator persona (\texttt{P6}). \texttt{Qwen3.6-27B} (green vector) achieves substantial gains, climbing from \num{0.527} to \num{0.655} overall MCC using \texttt{persona\_only} with the Deepfake Specialist persona (\texttt{P1}).
+    \item \textbf{Llama-4-Scout and Kimi-VL:} \texttt{Llama-4-Scout-17B} (purple vector) improves on GOTCHA (\num{0.614} vs \num{0.452}) but degrades on FOWS (\num{0.357} vs \num{0.492}), resulting in a negligible overall change (\num{0.485} vs \num{0.472}). \texttt{Kimi-VL-A3B-Instruct} (orange vector) exhibits no positive response to prompt engineering, peaking at \num{0.472} overall MCC.
+    \item \textbf{Instruction Following and Parsing Reliability:} On each model's winning configuration, parsing reliability was \num{100}\% with zero formatting errors (\Cref{tab:results_stage2_winners}). Across all 34 evaluated configurations combined, failures were extremely rare and occurred exclusively in suboptimal prompt configurations. Three of the five models (\texttt{Qwen3.6-35B-A3B}, \texttt{Qwen3.6-27B}, and \texttt{Kimi-VL-A3B-Instruct}) achieved zero parse failures across every evaluated configuration. The few observed failures in the remaining two models were not formatting errors, but explicit model refusals and capability disclaimers:
+    \begin{itemize}
+        \item In \texttt{gemma-4-31B-it}, only two queries failed to parse (\num{0.0022}\% failure rate), both occurring under the VFX Artist persona due to a disclaimer (\emph{"Unable to determine"}) and an explicit safety refusal (\emph{"My safety guidelines prohibit me from analyzing or identifying individuals in images..."}).
+        \item In \texttt{Llama-4-Scout-17B}, the 72 failures (\num{0.0788}\% failure rate) occurred when the model emitted statements such as \emph{"I am unable to verify"} and \emph{"I am not able to complete this task"}.
+    \end{itemize}
+    \item \textbf{Advancement to Full Benchmark Validation:} The top three models—\texttt{Qwen3.6-35B-A3B}, \texttt{gemma-4-31B-it}, and \texttt{Qwen3.6-27B}—all surpass \num{0.650} overall MCC and advance to the full benchmark test partition evaluation. \texttt{Kimi-VL-A3B-Instruct} (peak \num{0.472}) and \texttt{Llama-4-Scout-17B} (peak \num{0.485}) showed negligible gains or degradation relative to Stage 1 and were dropped.
+\end{itemize}
+
+\subsection{Full Benchmark Results}
+\label{subsec:stage2_full_validation}
+
+To verify whether the prompt engineering gains identified on the development sets generalize at scale, the locked winning configurations of the top three advancing models (\texttt{gemma-4-31B-it}, \texttt{Qwen3.6-35B-A3B}, and \texttt{Qwen3.6-27B}) are evaluated on the complete benchmark test partitions. \Cref{tab:results_stage2_full} reports the performance metrics and parse failure statistics, while \Cref{fig:stage2_full_scatter} compares each model's position on the development sets (stars) versus the full benchmark partitions (open circles).
+
+\begin{table}[t]
+	\centering
+	\small
+	\setlength{\tabcolsep}{5pt}
+	\begin{tabular}{lllrrrr}
+		\toprule
+		\textbf{Model} & \textbf{Best Structure} & \textbf{Persona} & \textbf{Overall} & \textbf{FOWS} & \textbf{GOTCHA} & \textbf{Parse Fails} \\
+		\midrule
+		gemma-4-31B-it  & persona + definition (system) & cv researcher       & \num{0.609} & \num{0.526} & \num{0.692} & 1 \\
+		Qwen3.6-35B-A3B & persona + task (user)         & integrity moderator & \num{0.594} & \num{0.422} & \num{0.767} & 0 \\
+		Qwen3.6-27B     & persona only                  & deepfake specialist & \num{0.570} & \num{0.388} & \num{0.752} & 0 \\
+		\bottomrule
+	\end{tabular}
+	\caption{Stage 2 evaluation on the full benchmark test partitions, evaluating the top three models at their locked optimal Stage 2 prompt configurations. Models are ordered by overall MCC.}
+	\label{tab:results_stage2_full}
+\end{table}
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=0.68\textwidth]{figures/stage2_full_scatter.png}
+	\caption{Development set versus full benchmark test partition performance (FOWS vs GOTCHA). Filled stars mark peak performance on the balanced development sets; open circles denote performance on the complete test partitions. Dashed anti-diagonals indicate iso-overall MCC contours.}
+	\label{fig:stage2_full_scatter}
+\end{figure}
+
+The full benchmark evaluation highlights several key findings:
+\begin{itemize}
+    \item \textbf{Gemma Achieves Top Rank on Full Benchmark:} On the complete test partitions, \texttt{gemma-4-31B-it} emerges as the top performing model overall (\num{0.609} MCC), surpassing both Qwen architectures. This advantage is driven by Gemma's stronger performance on FOWS (\num{0.526} vs \num{0.422} for Qwen35 and \num{0.388} for Qwen27).
+    \item \textbf{GOTCHA Robustness Across Scale:} On GOTCHA, all three models maintain high performance when moving from the development sample to the full dataset. \texttt{Qwen3.6-35B-A3B} and \texttt{Qwen3.6-27B} score \num{0.767} and \num{0.752} respectively, while \texttt{gemma-4-31B-it} increases from \num{0.643} on the development set to \num{0.692} on the full benchmark.
+    \item \textbf{FOWS Performance on Full Partitions:} On FOWS, all three models achieve lower MCC scores on the full test partition compared to their development set results.
+    \item \textbf{Parse Reliability at Scale:} The deterministic single phrase output constraint was followed reliably. Both Qwen models recorded zero parse failures across all queries, while \texttt{gemma-4-31B-it} produced only a single unparseable response (\emph{"Unable to determine"}).
+    \item \textbf{Consistent Occlusion Behavior at Scale:} Occlusion dynamics on the full test partitions mirror the development set results: all three models on GOTCHA achieve higher detection performance on occluded frames (placing all models below the diagonal), while on FOWS each model maintains its relative position, with \texttt{gemma-4-31B-it} and \texttt{Qwen3.6-35B-A3B} scoring higher on occluded frames and \texttt{Qwen3.6-27B} scoring higher on non occluded frames.
+\end{itemize}
