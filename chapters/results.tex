@@ -339,3 +339,110 @@ Across all evaluated reasoning queries on the full test partitions, instruction 
 
 Overall, the Stage~3 results demonstrate that generating intermediate reasoning tokens does not improve zero-shot face-swap detection performance in these models. Direct zero-shot classification under an aligned expert persona (Stage~2) achieves higher detection accuracy across all evaluated architectures.
 
+% -------------------------------------------------------------
+\section{Few-Shot In-Context Learning}
+\label{sec:results_fewshot}
+
+This section evaluates whether Multimodal Large Language Models can leverage in-context visual exemplars to improve single-image face-swap detection without parameter fine-tuning. Building directly upon each model's locked Stage~2 winning zero-shot configuration, we evaluate how performance evolves across three demonstration dimensions:
+\begin{enumerate}
+    \item \textbf{Demonstration count ($n$):} $n \in \{1, 2, 4, 6, 10\}$ labeled exemplar frames;
+    \item \textbf{Label composition:} \texttt{all\_real}, \texttt{all\_fake}, \texttt{interleave\_real\_first}, and \texttt{interleave\_fake\_first}; and
+    \item \textbf{Demonstration pool source:} \texttt{fows\_occ}, \texttt{fows\_noocc}, \texttt{gotcha\_occ}, and \texttt{gotcha\_noocc} (drawn strictly from training-split subjects).
+\end{enumerate}
+
+\subsection{Instruction Following and Parsing Reliability}
+\label{subsec:fewshot_reliability}
+
+Across all evaluated combinations of models, demonstration pools, label compositions, and exemplar counts on the development sets, a total of \num{645120} individual classifications were evaluated. Under the deterministic single-phrase extraction policy ($\pi(t)$, \Cref{sec:formulation}), all three models achieved \num{100}\% parsing reliability with zero format violations, successfully processing up to 10 visual demonstration frames alongside the target query within a single prompt context.
+
+\subsection{Demonstration Scaling and Composition Effects}
+\label{subsec:fewshot_scaling}
+
+\Cref{fig:fewshot_growth_gemma,fig:fewshot_growth_q27,fig:fewshot_growth_q35} display the performance of each model across demonstration counts ($n = 1$ to $10$) across all four test splits (rows) and four demonstration pools (columns), compared directly against each model's zero-shot Stage~2 baseline (dashed gray line).
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=0.95\textwidth]{figures/few_shot_N_growth_G.png}
+	\caption{Few-shot detection performance (MCC) versus demonstration count ($n$) for \texttt{gemma-4-31B-it}. Rows represent the four test evaluation splits; columns represent the four demonstration pools. Colored curves depict label compositions (\texttt{all\_real} in blue, \texttt{interleave\_real\_first} in green, \texttt{interleave\_fake\_first} in purple, \texttt{all\_fake} in red). The dashed gray line indicates the zero-shot Stage~2 baseline on that test split. Stars ($\bigstar$) denote in-domain demonstration pools.}
+	\label{fig:fewshot_growth_gemma}
+\end{figure}
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=0.95\textwidth]{figures/few_shot_N_growth_Q27.png}
+	\caption{Few-shot detection performance (MCC) versus demonstration count ($n$) for \texttt{Qwen3.6-27B} across test splits (rows), demonstration pools (columns), and label compositions (colored curves). The dashed gray line denotes the zero-shot Stage~2 baseline.}
+	\label{fig:fewshot_growth_q27}
+\end{figure}
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=0.95\textwidth]{figures/few_shot_N_growth_Q35.png}
+	\caption{Few-shot detection performance (MCC) versus demonstration count ($n$) for \texttt{Qwen3.6-35B-A3B} across test splits (rows), demonstration pools (columns), and label compositions (colored curves). The dashed gray line denotes the zero-shot Stage~2 baseline.}
+	\label{fig:fewshot_growth_q35}
+\end{figure}
+
+The growth curves and error metrics reveal several key findings:
+\begin{itemize}
+    \item \textbf{Label Composition Bias:} As a general pattern across models, providing examples from only one class heavily biases predictions, an effect that becomes increasingly pronounced as the number of demonstrations ($n$) increases. When shown only real examples (\texttt{all\_real}, blue curves), models are progressively biased toward predicting real, reducing false alarms at the cost of missing more fake faces. Conversely, showing only fake examples (\texttt{all\_fake}, red curves) shifts predictions toward fake, increasing false alarms on real images. Balanced sequences (\texttt{interleave\_real\_first} and \texttt{interleave\_fake\_first}) mitigate these single-class biases by maintaining an equal mix of real and fake examples.
+    \item \textbf{Absence of Recency Bias in Interleaved Sequences:} An examination of false-positive and false-negative rates reveals that interleaved sequences ending in a fake exemplar do not reproduce the behavior of \texttt{all\_fake}, nor do interleaved sequences ending in a real exemplar behave like \texttt{all\_real}. No systematic recency pattern is observed; models do not simply repeat the label of the last example in the sequence.
+    \item \textbf{Demonstration Count Saturation and Context Overload:} Across all models and compositions, detection performance does not increase monotonically with larger exemplar counts. Gains typically peak early at $n = 2$ or $n = 4$, followed by saturation or sharp performance degradation as $n$ reaches $6$ and $10$. Injecting many images into the prompt increases visual distraction and context interference rather than providing richer forensic signal.
+    \item \textbf{Absence of In-Domain Pool Advantage:} Comparing in-domain demonstration pools (matching both the dataset and occlusion condition of the test split, marked with $\bigstar$ in \Cref{fig:fewshot_growth_gemma,fig:fewshot_growth_q27,fig:fewshot_growth_q35}) against cross-domain pools shows no systematic performance benefit. In-domain exemplars do not consistently outperform out-of-domain exemplars.
+    \item \textbf{Architectural Divergence:} As seen across the three figures, the response to visual demonstrations is highly model-dependent:
+    \begin{itemize}
+        \item \texttt{gemma-4-31B-it} (\Cref{fig:fewshot_growth_gemma}) is the only model that exhibits consistent positive in-context learning gains, with \texttt{all\_real} sequences surpassing the zero-shot baseline across multiple pools.
+        \item \texttt{Qwen3.6-27B} (\Cref{fig:fewshot_growth_q27}) remains closest to its baseline when using balanced interleaved demonstrations, but exhibits negative deltas across most configurations.
+        \item \texttt{Qwen3.6-35B-A3B} (\Cref{fig:fewshot_growth_q35}) suffers severe performance degradation under visual in-context prompting, with almost all few-shot configurations falling substantially below its zero-shot baseline.
+    \end{itemize}
+\end{itemize}
+
+\subsection{Configuration Selection}
+\label{subsec:fewshot_selection}
+
+To identify the optimal few-shot setup for each architecture, we compute the pool-averaged overall MCC ($\overline{\text{MCC}}_{\text{overall}}$) across all four demonstration pools on the development sets. \Cref{tab:results_fewshot_winners} summarizes the winning configuration selected for each model and its comparison against the zero-shot Stage~2 baseline. \Cref{fig:fewshot_scatter} visualizes the performance shift from the zero-shot baseline to the winning few-shot configuration across both the development sample and the complete benchmark test partitions.
+
+\begin{table}[t]
+	\centering
+	\small
+	\setlength{\tabcolsep}{6pt}
+	\caption{Optimal few-shot configurations selected on the balanced development sets, ranked by pool-averaged overall MCC ($\overline{\text{MCC}}_{\text{overall}}$). For each model, the winning $(\text{composition}, n)$ pair is evaluated against its zero-shot Stage~2 baseline.}
+	\label{tab:results_fewshot_winners}
+	\begin{tabular}{llrrrr}
+		\toprule
+		\textbf{Model} & \textbf{Best Composition} & \textbf{$n$} & \textbf{Pool-Avg} & \textbf{Zero-Shot} & \textbf{$\Delta$ vs Zero} \\
+		\midrule
+		\texttt{gemma-4-31B-it}  & \texttt{all\_real}               & \num{4} & \num{0.691} & \num{0.663} & \num{+0.028} \\
+		\texttt{Qwen3.6-27B}     & \texttt{interleave\_real\_first} & \num{4} & \num{0.471} & \num{0.655} & \num{-0.184} \\
+		\texttt{Qwen3.6-35B-A3B} & \texttt{all\_fake}               & \num{2} & \num{0.353} & \num{0.675} & \num{-0.322} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=0.72\textwidth]{figures/few_shot_scatter_plot.png}
+	\caption{Winning few-shot configuration per model versus its zero-shot Stage~2 baseline on FOWS (x-axis) and GOTCHA (y-axis). Colors denote models (\texttt{Qwen3.6-35B-A3B} in blue, \texttt{gemma-4-31B-it} in green, \texttt{Qwen3.6-27B} in orange). Diamonds represent zero-shot baselines; stars represent winning few-shot configurations; white interior dots mark complete benchmark test partition evaluations. Faint connecting lines illustrate the shift in performance at each evaluation scale.}
+	\label{fig:fewshot_scatter}
+\end{figure}
+
+Across both the development set and the full benchmark test partitions, \texttt{gemma-4-31B-it} is the only model that managed to surpass its zero-shot baseline through in-context learning. For both \texttt{Qwen3.6-27B} and \texttt{Qwen3.6-35B-A3B}, visual demonstrations degraded detection accuracy, and direct zero-shot classification remained superior.
+
+\subsection{Impact of Occlusion across Benchmarks}
+\label{subsec:fewshot_occlusion}
+
+\Cref{fig:fewshot_occ} compares detection performance on occluded versus non-occluded faces across FOWS and GOTCHA for each model's winning few-shot configuration.
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=0.92\textwidth]{figures/few_shot_occ.png}
+	\caption{Occluded versus non-occluded detection performance (MCC) for each model's winning few-shot configuration on FOWS (left) and GOTCHA (right). Filled stars denote the development sample; stars with interior dots denote the complete benchmark test partitions. Points below the dashed $y = x$ line indicate higher performance on occluded faces; points above indicate higher performance on non-occluded faces.}
+	\label{fig:fewshot_occ}
+\end{figure}
+
+The few-shot occlusion patterns show:
+\begin{itemize}
+    \item \textbf{GOTCHA Divergence:} In previous stages, all models sat below the diagonal line, performing better on occluded faces. In the few-shot setting, \texttt{gemma-4-31B-it} remains below the line, while both Qwen models shift above the line, performing better on clean, non-occluded faces.
+    \item \textbf{FOWS Consistency:} On FOWS, the behavior remains consistent with earlier stages: \texttt{gemma-4-31B-it} and \texttt{Qwen3.6-35B-A3B} remain below the diagonal line, while \texttt{Qwen3.6-27B} stays closely aligned with the diagonal line.
+\end{itemize}
+
+
+
