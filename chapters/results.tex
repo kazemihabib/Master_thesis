@@ -280,3 +280,62 @@ The full benchmark evaluation highlights several key findings:
     \item \textbf{Parse Reliability at Scale:} The deterministic single phrase output constraint was followed reliably. Both Qwen models recorded zero parse failures across all queries, while \texttt{gemma-4-31B-it} produced only a single unparseable response (\emph{"Unable to determine"}).
     \item \textbf{Consistent Occlusion Behavior at Scale:} Occlusion dynamics on the full test partitions mirror the development set results: all three models on GOTCHA achieve higher detection performance on occluded frames (placing all models below the diagonal), while on FOWS each model maintains its relative position, with \texttt{gemma-4-31B-it} and \texttt{Qwen3.6-35B-A3B} scoring higher on occluded frames and \texttt{Qwen3.6-27B} scoring higher on non occluded frames.
 \end{itemize}
+
+% -------------------------------------------------------------
+\section{Stage 3: Chain-of-Thought and Visual Reasoning Dynamics}
+\label{sec:results_stage3}
+
+Building upon the optimal zero-shot configurations established in Stage~2, Stage~3 evaluates the impact of visual reasoning on face-swap detection across three paradigms: \emph{Unguided Chain-of-Thought}, \emph{Guided Chain-of-Thought}, and \emph{Answer-First}.
+
+Unlike Stages~1 and 2—where intermediate winning configurations were selected on the balanced development sets before advancing to full-scale evaluation—\textbf{every Stage~3 reasoning configuration underperformed its direct classification baseline on the development sets}. Consequently, no single reasoning variant qualified as an improved configuration. To analyze this performance drop across scales, all three reasoning paradigms were evaluated across the top three models on both the balanced development sets and the complete benchmark test partitions.
+
+\subsection{Cross-Stage Comparison and Reasoning Degradation}
+\label{subsec:stage3_overview}
+
+\Cref{fig:stage3_scatter} visualizes the performance of all evaluated runs on a FOWS versus GOTCHA correlation scatter plot.
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=0.78\textwidth]{figures/stage3_scatter.png}
+	\caption{Stage~3 visual reasoning performance versus Stage~2 direct zero-shot baselines across FOWS (x-axis) and GOTCHA (y-axis). Colors distinguish models (\texttt{Qwen3.6-35B-A3B} in blue, \texttt{gemma-4-31B-it} in red, \texttt{Qwen3.6-27B} in green), while marker shapes denote prompt paradigms (Stage~2 baseline: diamonds; Guided CoT: crosses; Unguided CoT: circles; Answer-First: squares). Solid markers represent balanced development sets (1000-sample); dotted markers represent complete benchmark test partitions. Dashed anti-diagonals denote iso-overall MCC contours ($\text{MCC}_{\text{overall}} = k$). All Stage~3 reasoning variants sit strictly below their corresponding Stage~2 baselines.}
+	\label{fig:stage3_scatter}
+\end{figure}
+
+The experimental results show a consistent pattern across all models and benchmarks: \textbf{eliciting intermediate visual reasoning leads to lower detection performance (MCC) compared to direct zero-shot classification}. In \Cref{fig:stage3_scatter}, every Stage~3 configuration sits strictly below the performance level of its Stage~2 baseline.
+
+\subsection{Failure Modes and Asymmetric Error Dynamics}
+\label{subsec:stage3_failure_modes}
+
+An examination of the classification errors reveals that the performance drop is driven by three distinct error patterns:
+
+\begin{enumerate}
+    \item \textbf{High False Negatives in Guided CoT:}
+    In Guided CoT, both \texttt{Qwen3.6-35B-A3B} and \texttt{Qwen3.6-27B} become heavily biased toward predicting images as authentic, missing almost all manipulated faces. On the full benchmark, \texttt{Qwen3.6-35B-A3B} achieves a false negative rate of $\text{FNR} = \num{0.982}$ with $\text{FPR} = \num{0.000}$ (yielding overall MCC \num{0.079}), while \texttt{Qwen3.6-27B} reaches $\text{FNR} = \num{0.922}$ with $\text{FPR} = \num{0.002}$ (overall MCC \num{0.163}). Both models achieve near-zero MCC on FOWS (\num{0.024} and \num{0.062} respectively). In \texttt{gemma-4-31B-it}, the false negative rate doubles from \num{0.259} in Stage~2 to \num{0.560} on the full benchmark, reducing overall MCC from \num{0.609} to \num{0.414}.
+
+    \item \textbf{Divergent Error Biases in Unguided CoT:}
+    Under Unguided CoT, the models split into opposite error patterns. In \texttt{gemma-4-31B-it}, unguided reasoning sharply increases the false positive rate from \num{0.071} in Stage~2 to \num{0.461} on the full benchmark, resulting in an overall MCC of \num{0.451}. Conversely, the two Qwen models maintain very low false positive rates ($\text{FPR} \le \num{0.022}$) but exhibit high false negative rates ($\text{FNR} > \num{0.840}$), yielding overall MCCs of \num{0.208} for \texttt{Qwen3.6-35B-A3B} and \num{0.116} for \texttt{Qwen3.6-27B}.
+
+    \item \textbf{Performance Preservation and Collapse in Answer-First:}
+    By requiring the decision token to be generated before the explanation, Answer-First isolates the binary decision from prior generated text tokens.
+    \begin{itemize}
+        \item For \texttt{gemma-4-31B-it} and \texttt{Qwen3.6-27B}, Answer-First is the highest-scoring reasoning variant, reaching full benchmark overall MCCs of \num{0.556} and \num{0.447} respectively. On the FOWS development set, Gemma reaches an MCC of \num{0.692} (compared to \num{0.683} in Stage~2).
+        \item In contrast, \texttt{Qwen3.6-35B-A3B} suffers an extreme mode collapse under Answer-First: the model classifies almost all images as manipulated, resulting in $\text{FPR} = \num{0.997}$, $\text{FNR} = \num{0.000}$, and an overall MCC of \num{0.024} on the full benchmark.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Occlusion Dynamics across Benchmarks}
+\label{subsec:stage3_occlusion}
+
+Evaluating detection performance across occluded and non-occluded subsets shows patterns consistent with the previous stages:
+\begin{itemize}
+    \item \textbf{GOTCHA Occlusion Advantage:} Consistent with Stages~1 and 2, models on GOTCHA achieve higher detection performance on occluded faces than on non-occluded faces across reasoning modes.
+    \item \textbf{FOWS Alignment with Diagonal:} On FOWS, models cluster much closer to the diagonal line, showing more balanced performance between occluded and non-occluded frames.
+\end{itemize}
+
+\subsection{Instruction Following and Parsing Reliability}
+\label{subsec:stage3_parsing}
+
+Across all evaluated reasoning queries on the full test partitions, instruction following remained high under the deterministic single-phrase parser ($\pi(t)$, \Cref{sec:formulation}). Both \texttt{Qwen3.6-35B-A3B} and \texttt{Qwen3.6-27B} achieved \num{100}\% parsing reliability with zero format violations across all reasoning variants. \texttt{gemma-4-31B-it} produced two unparseable responses on the full benchmark, both due to disclaimers (\emph{"Unable to determine"}).
+
+Overall, the Stage~3 results demonstrate that generating intermediate reasoning tokens does not improve zero-shot face-swap detection performance in these models. Direct zero-shot classification under an aligned expert persona (Stage~2) achieves higher detection accuracy across all evaluated architectures.
+
