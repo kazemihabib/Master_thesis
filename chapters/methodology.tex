@@ -26,7 +26,7 @@ The remainder of this chapter is organised as follows:
 We formulate single-image face-swap detection as a binary classification problem. Let $\mathcal{X}$ denote the space of RGB facial images. An input image $x \in \mathcal{X}$ is associated with a ground-truth label $y \in \mathcal{Y} = \{\text{real}, \text{fake}\}$, where:
 \begin{itemize}
     \item $\text{real}$ ($y = 0$): corresponds to an authentic, unaltered facial photograph of a person;
-    \item $\text{fake}$ ($y = 1$): corresponds to a digitally manipulated image in which the facial identity of the original subject has been replaced by a target identity via an automated face-swapping algorithm.
+    \item $\text{fake}$ ($y = 1$): corresponds to a digitally manipulated image in which the facial identity of the original subject has been replaced by a target identity via a face-swapping algorithm.
 \end{itemize}
 
 Let $m$ denote an off-the-shelf instruction-tuned MLLM. Given an input facial query image $x$, a prompt $p$, and a hyperparameter configuration $\theta_{\text{gen}}$ (such as sampling temperature and maximum output sequence length), the model autoregressively generates an output text sequence $t$:
@@ -191,17 +191,27 @@ All evaluation workflows are implemented in Python 3.12. Dependencies, including
 \section{Inference Engine Selection}
 \label{sec:engine}
 
-The benchmark requires a prediction for every frame in the test partitions, more than \num{80000} in total, and this is repeated for each candidate configuration. Processing a workload of this size makes the inference engine a central choice, since it governs how efficiently the GPU is used.
+The benchmark requires a prediction for every frame in the test partitions, more than \num{80000} in total, and this is repeated for each candidate configuration. Processing a workload of this size makes the inference engine a central choice, since it governs how efficiently the GPU is used. 
+\textcolor{blue}{For that reason, we decided to adopt vLLM~\cite{vllm}, an inference engine built for high-throughput generation, whose properties match our setting:}
+\begin{itemize}
+    \item \textcolor{blue}{It performs \emph{continuous batching}, so, instead of waiting for a whole batch of requests to finish before starting the next, it fills each freed slot with a waiting request as soon as the current one completes. In this way, the GPU stays busy rather than idling on requests that have already finished. 
+    \item It supports integration to the Hugging Face ecosystem, allowing to easily access a wide range of models, together with several quantization formats, thus making the model suite described in Sect. \Cref{sec:models} feasible on a single card. 
+    \item It provides a mature multi-GPU support, which would easily allow us to port our experiments from a single to multiple GPUs. }
+\end{itemize}
 
-We adopted vLLM~\cite{vllm}, an inference engine built for high-throughput generation. It offers three properties that match our setting. It performs \emph{continuous batching}: instead of waiting for a whole batch of requests to finish before starting the next, it fills each freed slot with a waiting request as soon as the current one completes, so the GPU stays busy rather than idling on requests that have already finished. It supports a wide range of models directly from the Hugging Face ecosystem, together with several quantization formats, which is what makes the model suite of \Cref{sec:models} feasible on a single card. And it provides mature multi-GPU support, useful for portability even though our experiments use one GPU.
 
-vLLM can be used in two ways: as an online server exposing an HTTP endpoint, or as a library called directly from Python for offline batch inference. The online server targets interactive, chatbot-style applications where requests arrive over time. Our workload is the opposite: a fixed, known set of frames processed in bulk with no external clients. We therefore use the offline mode, which removes the HTTP layer and its serialisation overhead, avoids the operational burden of running and monitoring a server, and lets the pipeline of \Cref{sec:pipeline} drive generation as ordinary function calls.
+\sout{We adopted vLLM~\cite{vllm}, an inference engine built for high-throughput generation. It offers three properties that match our setting. It performs \emph{continuous batching}: instead of waiting for a whole batch of requests to finish before starting the next, it fills each freed slot with a waiting request as soon as the current one completes, so the GPU stays busy rather than idling on requests that have already finished. It supports a wide range of models directly from the Hugging Face ecosystem, together with several quantization formats, which is what makes the model suite of \Cref{sec:models} feasible on a single card. And it provides mature multi-GPU support, useful for portability even though our experiments use one GPU.}
+
+vLLM can be used in two ways: as an online server exposing an HTTP endpoint, or as a library called directly from Python for offline batch inference. The online server targets interactive, chatbot-style applications where requests arrive over time. \textcolor{blue}{However,} our workload \sout{is the opposite, since it} consists of a fixed, known set of frames processed in bulk without external clients. As a result, we decided to use the offline mode, which removes the HTTP layer and its serialization overhead, avoids the operational burden of running and monitoring a server, and let the pipeline of \Cref{sec:pipeline} to drive generation as ordinary function calls.
 
 % -------------------------------------------------------------
 \section{Model Set}
 \label{sec:models}
 
-This section presents the full set of models we evaluate. We benchmark openly available models rather than proprietary ones served behind an API. The datasets consist of facial images of identifiable subjects, and sending them to an external service would expose that personal data outside our control. Running openly available models on our own hardware keeps every image local and avoids this exposure.
+This section presents the full set of \textcolor{blue}{general purpose open-source} models that we have evaluated. 
+\textcolor{blue}{Please note that we have decided to focus on open-source models since our} datasets consist of facial images of identifiable subjects. Thus, using commercial models will send those images to an external service that would expose personal data outside our control. Running \textcolor{blue}{instead,} openly available models on our own hardware keeps every image local and avoids this exposure.
+% We benchmark openly available models rather than proprietary ones served behind an API. 
+% The datasets consist of facial images of identifiable subjects, and sending them to an external service would expose that personal data outside our control. Running openly available models on our own hardware keeps every image local and avoids this exposure.
 
 Candidate models were drawn from the Hugging Face ecosystem and admitted to the set under three constraints. Each model must (i) be able to process images and have been tuned to follow instructions, (ii) be supported by the vLLM engine of \Cref{sec:engine}, and (iii) fit within the \num{80}\,GB of a single A100 (\Cref{sec:compute_env}) together with the memory it needs at run time, since no parallelism across GPUs is used. This run-time memory is dominated by the key-value cache (KV cache) that the model accumulates as it generates, and it grows with the context length and the batch size. The resulting set of nine models is listed in \Cref{tab:models}. It deliberately spans a wide range of scales and architectural families, from a compact \num{5.6}\,B dense model to a \num{109}\,B mixture of experts (MoE), a sparse design that activates only a small fraction of its parameters per token.
 
@@ -238,16 +248,18 @@ Some of these models are hybrids that can produce a chain of reasoning before th
 \section{Evaluation Metric}
 \label{sec:metric}
 
-The primary metric on which models, prompts, and datasets are compared throughout this work is the Matthews Correlation Coefficient (MCC). Reusing the confusion matrix counts over the binary label space of \Cref{sec:formulation}, with \emph{fake} as the positive class and \emph{real} as the negative class, let $\mathrm{TP}$, $\mathrm{TN}$, $\mathrm{FP}$, and $\mathrm{FN}$ denote the true positives, true negatives, false positives, and false negatives. MCC is defined as
+The primary metric on which models, prompts, and datasets are compared throughout this work is the Matthews Correlation Coefficient (MCC) \cite{mcc}. Reusing the confusion matrix counts over the binary label space of \Cref{sec:formulation}, with \emph{fake} as the positive class and \emph{real} as the negative class, let $\mathrm{TP}$, $\mathrm{TN}$, $\mathrm{FP}$, and $\mathrm{FN}$ denote the true positives, true negatives, false positives, and false negatives. MCC is defined as
 \begin{equation}
 	\text{MCC} = \frac{\mathrm{TP}\cdot\mathrm{TN} - \mathrm{FP}\cdot\mathrm{FN}}{\sqrt{(\mathrm{TP}+\mathrm{FP})(\mathrm{TP}+\mathrm{FN})(\mathrm{TN}+\mathrm{FP})(\mathrm{TN}+\mathrm{FN})}} ,
 	\label{eq:mcc}
 \end{equation}
-and takes values in $[-1, 1]$: $+1$ for perfect agreement between prediction and ground truth, $0$ for predictions no better than chance, and $-1$ for total disagreement. Whenever any factor in the denominator is zero, which happens when the model assigns every frame to a single class, the coefficient is taken to be $0$.
+and takes values in $[-1, 1]$: $+1$ for perfect agreement between prediction and ground truth, $0$ for predictions no better than chance, and $-1$ for total disagreement. Whenever any factor in the denominator is zero, which typically happens when the model assigns every frame to a single class, the coefficient is taken to be $0$.
 
-We take MCC as the primary metric on the grounds established by Chicco and Jurman~\cite{mcc}, who show it to be more informative and truthful than accuracy and the F1 score for binary classification. MCC is the only one of these common scalar summaries that draws on all four cells of the confusion matrix, so it yields a high value only when the classifier predicts both the real and the fake class well, proportionally to the number of real and fake instances in the data. Accuracy and F1, by contrast, can be overoptimistically inflated on class-imbalanced datasets by a classifier that favours the majority class. This distinction is material here because the full test partitions are imbalanced: FOWS pairs each genuine frame with four swaps, a $1{:}4$ real-to-fake ratio (\Cref{tab:datasets}), so a detector that labels every frame \emph{fake} would reach $80\%$ accuracy while learning nothing, yet its MCC is $0$. MCC is furthermore symmetric: it is invariant to swapping which class is designated positive, so the reported score does not depend on the arbitrary choice of treating \emph{fake} rather than \emph{real} as the positive class, unlike the F1 score.
+We selected MCC as the primary evaluation metric since, as discussed by Chicco and Jurman~\cite{mcc}, it tends to be more informative and truthful than accuracy and the F1 score for binary classification. MCC is the only one of these common scalar summaries that draws on all four cells of the confusion matrix, so it yields a high value only when the classifier predicts both the real and the fake class well, proportionally to the number of real and fake instances in the data. Accuracy and F1, by contrast, can be overoptimistically inflated on class-imbalanced datasets by a classifier that favours the majority class. This distinction is material here because the full test partitions are imbalanced: FOWS pairs each genuine frame with four swaps, a $1{:}4$ real-to-fake ratio (\Cref{tab:datasets}). Consequently, a detector that labels every frame \emph{fake} would achieve $80\%$ accuracy despite learning nothing meaningful, whereas its MCC would correctly register as $0$. 
 
-A prediction of the failure symbol $\bot$ (\Cref{sec:formulation}) is scored as an incorrect answer rather than discarded, as in FakeBench~\cite{fakebench}. Before \Cref{eq:mcc} is evaluated we assign it the label opposite to the ground truth, so a $\bot$ counts as a false positive on a real frame and a false negative on a fake one. This keeps every frame in the evaluation, so a model that fails to answer is not implicitly rewarded by having those frames removed from its score.
+Furthremore, MCC is also symmetric: it is invariant to swapping which class is designated positive, so the reported score does not depend on the arbitrary choice of treating \emph{fake} rather than \emph{real} as the positive class, unlike the F1 score.
+
+A prediction of the failure symbol $\bot$ (\Cref{sec:formulation}) is scored as an incorrect answer rather than discarded, as in FakeBench~\cite{fakebench}. Before \Cref{eq:mcc} is evaluated we assign it the label opposite to the ground truth, so a $\bot$ counts as a false positive on a real frame and a false negative on a fake one. This way we preserve every frame during evaluation, so a model that fails to answer is not implicitly rewarded by having those frames removed from its score.
 
 % -------------------------------------------------------------
 \section{Pipeline Architecture}
@@ -272,11 +284,11 @@ In many evaluation pipelines, experiments are defined through hardcoded python s
 
 To avoid repeating model definitions across different experiments, configurations are separated into two distinct layers:
 \begin{enumerate}
-    \item \textbf{Shared Model Configurations (\emph{How to interact with a model}):} Each model has a single, reusable configuration file stored in \texttt{shared\_configs/models/}. This file defines how to communicate with the inference engine and passes all necessary runtime arguments to instantiate and serve the model. Supported parameters include, for example, the backend engine (such as vLLM or an external API), the model source on Hugging Face, data type precision, maximum context window size, optional LoRA adapters, and custom chat templates.
+    \item \textbf{Shared Model Configurations (\emph{How to interact with a model}):} Each model has a single, reusable configuration file stored in \texttt{\seqsplit{shared\_configs/models/}}. This file defines how to communicate with the inference engine and passes all necessary runtime arguments to instantiate and serve the model. Supported parameters include, for example, the backend engine (such as vLLM or an external API), the model source on Hugging Face, data type precision, maximum context window size, optional LoRA adapters, and custom chat templates.
     \item \textbf{Study Configurations (\emph{What experiment to run}):} We use the term \emph{study} to refer to a structured experiment designed to evaluate a specific task, such as zero shot classification or few shot in context learning. Rather than creating dozens of separate, repetitive configuration files for each individual combination of model, prompt, and dataset, a study TOML declares all target models, datasets, prompt collections, batch sizes, and sampling settings together in one place. These are stored under the \texttt{studies/} directory, divided into task specific folders such as \texttt{zero\_shot/} and \texttt{few\_shot/}.
 \end{enumerate}
 
-\Cref{lst:dir_structure} shows how these components are organized on disk. Under each study category, such as \texttt{zero\_shot/}, individual experiments are defined as dedicated TOML files (for example, \texttt{stage1.toml} or \texttt{stage2\_v3\_full.toml}) and are collocated with their corresponding prompt templates in \texttt{prompts/} and output logs in \texttt{results/}.
+\Cref{lst:dir_structure} shows how these components are organized on disk. In each study category, such as \texttt{zero\_shot/}, individual experiments are defined as dedicated TOML files (for example, \texttt{stage1.toml} or \texttt{stage2\_v3\_full.toml}) and are collocated with their corresponding prompt templates in \texttt{prompts/} and output logs in \texttt{results/}.
 
 \begin{lstlisting}[basicstyle=\ttfamily\scriptsize,breaklines=true,frame=single,caption={Directory layout of the experimental framework.},label={lst:dir_structure}]
 A100_Experiments/
@@ -444,7 +456,7 @@ To make this exploration tractable, we design a staged prompt engineering funnel
 \paragraph{Declarative Prompt Template Schema.}
 Within the evaluation pipeline (\Cref{sec:pipeline}), every prompt is defined as a declarative JSON document that decouples conversation structure from image assets and extraction rules. As shown in \Cref{lst:prompt_schema}, a prompt template contains three primary fields:
 \begin{enumerate}
-    \item \texttt{id}: A unique identifier declaring the template format (for example, \texttt{basic\_conversation\_v1} for direct zero-shot queries or \texttt{cot\_conversation\_v1} for reasoning variants).
+    \item \texttt{id}: A unique identifier declaring the template format (for example, \texttt{basic\_conversation\_v1} for direct zero-shot queries or \texttt{\seqsplit{cot\_conversation\_v1}} for reasoning variants).
     \item \texttt{conversations}: An ordered list of message objects specifying the conversation turn (\texttt{system} or \texttt{user}) and its content blocks. Text blocks provide instructions, while image blocks contain logical placeholders (\texttt{image\_id: "target\_image"}) that the task worker dynamically populates with the queried frame.
     \item \texttt{response\_format}: Specifies the extraction contract parsed by $\pi(t)$ (\Cref{sec:formulation}). For single-phrase classification, it declares the expected target label words $w_{\text{real}}$ and $w_{\text{fake}}$.
 \end{enumerate}
@@ -490,7 +502,7 @@ To prevent computational bottlenecks, all intermediate decisions across Stages~1
 In binary classification with natural language models, the specific words assigned to the positive and negative classes can significantly alter model predictions. As demonstrated by Ismithdeen et al.~\cite{ismithdeen2025promptception}, Multimodal Large Language Models exhibit substantial lexical sensitivity, where subtle shifts in prompt vocabulary produce performance swings of up to \num{15}\% to \num{50}\% across vision benchmarks. Standard labels such as \texttt{"real"} and \texttt{"fake"} are semantically broad and carry priors from general pretraining that may not align well with visual manipulation artifacts. To identify the optimal terminology for face swap detection, Stage 1 systematically evaluates candidate vocabulary words along both class dimensions:
 \begin{itemize}
     \item \textbf{Real class ($w_{\text{real}}$, 4 candidates):} \texttt{authentic}, \texttt{bona fide}, \texttt{original}, \texttt{real}.
-    \item \textbf{Fake class ($w_{\text{fake}}$, 7 candidates):} \texttt{fake}, \texttt{deepfake}, \texttt{generated}, \texttt{faceswapped}, \texttt{manipulated}, \texttt{synthetic}, \texttt{modified}.
+    \item \textbf{Fake class ($w_{\text{fake}}$, 7 candidates):} \texttt{fake}, \texttt{deepfake}, \texttt{generated}, \\\texttt{{faceswapped}}, \texttt{manipulated}, \texttt{synthetic}, \texttt{modified}.
 \end{itemize}
 Taking the Cartesian product yields $4 \times 7 = 28$ candidate vocabulary pairs.
 
@@ -519,7 +531,7 @@ Because running subsequent prompt engineering stages across all nine models woul
     \item \texttt{moonshotai/Kimi-VL-A3B-Instruct}
     \item \texttt{RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16}
 \end{enumerate}
-The remaining four models (\texttt{GLM-4.6V-Flash}, \texttt{Nemotron-Nano-12B}, \texttt{InternVL3.5-30B}, and \texttt{Phi-4-multimodal}) exhibited lower peak performance and were excluded from subsequent stages.
+The remaining four models (\texttt{GLM-4.6V-Flash}, \texttt{Nemotron-Nano-12B}, \\\texttt{InternVL3.5-30B}, and \texttt{Phi-4-multimodal}) exhibited lower peak performance and were excluded from subsequent stages.
 
 Evaluating the candidate pairs on the development sets yields the winning vocabulary pair for each of the five selected models, summarized in \Cref{tab:stage1_winners}. These winning pairs define the fixed target vocabulary $\mathcal{V}$ for each model in Stage 2. A detailed comparative analysis of lexical sensitivity across the full 28 pair grid is presented in \Cref{chap:results}.
 
